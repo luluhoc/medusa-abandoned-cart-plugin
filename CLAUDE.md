@@ -121,4 +121,6 @@ what lets admin routes fetch `cart.items.*`, `customer.*`, `order.*` through Que
 - `docs/` is a complete, cross-linked user manual (9 files). Behaviour or option changes need matching
   edits there — especially `configuration.md`, `how-it-works.md`, and `api-reference.md`.
 - A `medusa` MCP server is configured for this project. Prefer its doc/API-spec tools over recalling
-  Medusa v2 APIs from memory.
+  Medusa v2 APIs from memory. It is a hosted HTTP server declared in [.mcp.json](.mcp.json) and
+  authenticated with a bearer token, so **export `MEDUSA_MCP_TOKEN` before starting Claude Code** —
+  the checked-in config only carries the `${MEDUSA_MCP_TOKEN}` placeholder, never the token itself.
