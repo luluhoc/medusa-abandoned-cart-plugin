@@ -1,0 +1,8 @@
+{
+  // Type-checking config for `yarn typecheck`. It skips `src/admin`, which
+  // Vite compiles as ESM — `tsc` would flag `import.meta` under the CommonJS
+  // module setting the server build needs.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", ".medusa", "src/admin", "**/*.spec.ts"]
+}

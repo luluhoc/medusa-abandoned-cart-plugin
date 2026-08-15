@@ -1,0 +1,88 @@
+{
+  "name": "medusa-plugin-abandoned-cart",
+  "version": "0.1.0",
+  "description": "Abandoned cart detection, multi-stage recovery notifications, and recovery analytics for Medusa v2.",
+  "license": "MIT",
+  "author": "luluhoc",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luluhoc/medusa-abandoned-cart-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/luluhoc/medusa-abandoned-cart-plugin/issues"
+  },
+  "homepage": "https://github.com/luluhoc/medusa-abandoned-cart-plugin#readme",
+  "keywords": [
+    "medusa",
+    "medusa-v2",
+    "medusa-plugin",
+    "medusa-plugin-other",
+    "abandoned-cart",
+    "cart-recovery"
+  ],
+  "files": [
+    "package.json",
+    "AGENTS.md",
+    "docs",
+    "examples",
+    ".medusa/server"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "yarn@1.22.22",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "medusa plugin:build",
+    "dev": "medusa plugin:develop",
+    "generate": "medusa plugin:db:generate",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
+    "prepublishOnly": "medusa plugin:build"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    "./workflows": "./.medusa/server/src/workflows/index.js",
+    "./.medusa/server/src/modules/*": "./.medusa/server/src/modules/*/index.js",
+    "./modules/*": "./.medusa/server/src/modules/*/index.js",
+    "./providers/*": "./.medusa/server/src/providers/*/index.js",
+    "./admin": {
+      "import": "./.medusa/server/src/admin/index.mjs",
+      "require": "./.medusa/server/src/admin/index.js",
+      "default": "./.medusa/server/src/admin/index.js"
+    },
+    "./*": "./.medusa/server/src/*.js"
+  },
+  "devDependencies": {
+    "@medusajs/admin-sdk": "2.19.0",
+    "@medusajs/cli": "2.19.0",
+    "@medusajs/framework": "2.19.0",
+    "@medusajs/icons": "2.19.0",
+    "@medusajs/js-sdk": "2.19.0",
+    "@medusajs/medusa": "2.19.0",
+    "@medusajs/test-utils": "2.19.0",
+    "@medusajs/ui": "4.2.1",
+    "@swc/core": "^1.7.28",
+    "@tanstack/react-query": "5.64.2",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.2.25",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.20.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2",
+    "yalc": "^1.0.0-pre.53"
+  },
+  "peerDependencies": {
+    "@medusajs/admin-sdk": "^2.19.0",
+    "@medusajs/cli": "^2.19.0",
+    "@medusajs/framework": "^2.19.0",
+    "@medusajs/icons": "^2.19.0",
+    "@medusajs/js-sdk": "^2.19.0",
+    "@medusajs/medusa": "^2.19.0",
+    "@medusajs/test-utils": "^2.19.0",
+    "@medusajs/ui": "^4.2.1"
+  }
+}

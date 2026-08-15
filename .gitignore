@@ -1,0 +1,14 @@
+node_modules/
+package-lock.json
+.medusa/
+dist/
+.yalc/
+yalc.lock
+
+.env
+.env.local
+
+*.log
+.DS_Store
+.idea/
+.mcp.json
