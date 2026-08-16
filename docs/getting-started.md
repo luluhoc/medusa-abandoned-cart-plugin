@@ -13,7 +13,7 @@ This guide takes you from an empty Medusa project to a reminder landing in your 
 ## 1. Install
 
 ```bash
-yarn add medusa-plugin-abandoned-cart
+yarn add @luluhoc/medusa-plugin-abandoned-cart
 ```
 
 ## 2. Register a notification provider
@@ -64,7 +64,7 @@ module.exports = defineConfig({
   // ...
   plugins: [
     {
-      resolve: "medusa-plugin-abandoned-cart",
+      resolve: "@luluhoc/medusa-plugin-abandoned-cart",
       options: {
         storefrontUrl: process.env.STOREFRONT_URL,
         stages: [

@@ -8,7 +8,7 @@ Machine-oriented guide for coding agents. Two tasks are covered:
 Human-facing documentation lives in [`docs/`](./docs). Prefer this file for automation: it is
 exhaustive about the option schema and states the constraints that cause silent failures.
 
-Package name: `medusa-plugin-abandoned-cart`. Requires **Medusa v2.19.0+**.
+Package name: `@luluhoc/medusa-plugin-abandoned-cart`. Requires **Medusa v2.19.0+**.
 
 ---
 
@@ -34,7 +34,7 @@ works.
 ### 1. Install
 
 ```bash
-yarn add medusa-plugin-abandoned-cart
+yarn add @luluhoc/medusa-plugin-abandoned-cart
 ```
 
 ### 2. Edit `medusa-config.ts`
@@ -69,7 +69,7 @@ module.exports = defineConfig({
   // Edit B — the plugin.
   plugins: [
     {
-      resolve: "medusa-plugin-abandoned-cart",
+      resolve: "@luluhoc/medusa-plugin-abandoned-cart",
       options: {
         storefrontUrl: process.env.STOREFRONT_URL,
         stages: [
@@ -243,10 +243,10 @@ import {
   sendAbandonedCartNotificationsWorkflow,  // { ids?, limit?, force?, stage_id? }
   markAbandonedCartRecoveredWorkflow,      // { id? | token? | cart_id? }
   markAbandonedCartConvertedWorkflow,      // { order_id, cart_id? }
-} from "medusa-plugin-abandoned-cart/workflows"
+} from "@luluhoc/medusa-plugin-abandoned-cart/workflows"
 
-import { ABANDONED_CART_MODULE } from "medusa-plugin-abandoned-cart/modules/abandoned-cart"
-import { runAbandonedCartSweep } from "medusa-plugin-abandoned-cart/utils/run-sweep"
+import { ABANDONED_CART_MODULE } from "@luluhoc/medusa-plugin-abandoned-cart/modules/abandoned-cart"
+import { runAbandonedCartSweep } from "@luluhoc/medusa-plugin-abandoned-cart/utils/run-sweep"
 ```
 
 HTTP routes: `GET /store/abandoned-carts/:token`, and under `/admin/abandoned-carts` —

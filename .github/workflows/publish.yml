@@ -24,6 +24,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+          scope: "@luluhoc"
 
       - name: Install dependencies
         run: yarn install --network-timeout 300000

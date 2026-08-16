@@ -1,6 +1,6 @@
 # Documentation
 
-Everything you need to run, configure and extend `medusa-plugin-abandoned-cart`.
+Everything you need to run, configure and extend `@luluhoc/medusa-plugin-abandoned-cart`.
 
 ## Start here
 

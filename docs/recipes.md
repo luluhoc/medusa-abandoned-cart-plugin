@@ -11,7 +11,7 @@ import {
   sendAbandonedCartNotificationsWorkflow,
   markAbandonedCartRecoveredWorkflow,
   markAbandonedCartConvertedWorkflow,
-} from "medusa-plugin-abandoned-cart/workflows"
+} from "@luluhoc/medusa-plugin-abandoned-cart/workflows"
 ```
 
 | Workflow | Input | Returns |
@@ -47,13 +47,13 @@ import {
   selectDueAbandonedCartsStep,
   sendAbandonedCartNotificationsStep,
   recordAbandonedCartNotificationsStep,
-} from "medusa-plugin-abandoned-cart/workflows"
+} from "@luluhoc/medusa-plugin-abandoned-cart/workflows"
 ```
 
 ## Use the service directly
 
 ```ts
-import { ABANDONED_CART_MODULE } from "medusa-plugin-abandoned-cart/modules/abandoned-cart"
+import { ABANDONED_CART_MODULE } from "@luluhoc/medusa-plugin-abandoned-cart/modules/abandoned-cart"
 
 const service = container.resolve(ABANDONED_CART_MODULE)
 ```
@@ -82,7 +82,7 @@ const stats = await service.getStats({
 The scheduled job is a thin wrapper — you can call the same helper from anywhere:
 
 ```ts title="src/jobs/my-sweep.ts"
-import { runAbandonedCartSweep } from "medusa-plugin-abandoned-cart/utils/run-sweep"
+import { runAbandonedCartSweep } from "@luluhoc/medusa-plugin-abandoned-cart/utils/run-sweep"
 
 export default async function mySweep(container) {
   // Detect only; send nothing.
@@ -102,8 +102,8 @@ through the sequence from the beginning. If you'd rather send such carts straigh
 message:
 
 ```ts title="src/jobs/catch-up.ts"
-import { ABANDONED_CART_MODULE } from "medusa-plugin-abandoned-cart/modules/abandoned-cart"
-import { sendAbandonedCartNotificationsWorkflow } from "medusa-plugin-abandoned-cart/workflows"
+import { ABANDONED_CART_MODULE } from "@luluhoc/medusa-plugin-abandoned-cart/modules/abandoned-cart"
+import { sendAbandonedCartNotificationsWorkflow } from "@luluhoc/medusa-plugin-abandoned-cart/workflows"
 
 export default async function catchUp(container) {
   const service = container.resolve(ABANDONED_CART_MODULE)
@@ -141,7 +141,7 @@ sequence for those carts.
 Tokens don't expire on their own. To retire records past a certain age:
 
 ```ts title="src/jobs/expire-abandoned-carts.ts"
-import { ABANDONED_CART_MODULE } from "medusa-plugin-abandoned-cart/modules/abandoned-cart"
+import { ABANDONED_CART_MODULE } from "@luluhoc/medusa-plugin-abandoned-cart/modules/abandoned-cart"
 
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 

@@ -1,4 +1,4 @@
-# medusa-plugin-abandoned-cart
+# @luluhoc/medusa-plugin-abandoned-cart
 
 Abandoned cart detection, multi-stage recovery emails, and recovery analytics for **Medusa v2**.
 
@@ -20,7 +20,7 @@ to the cart so you can see what the sequence actually earned.
 ## Quick start
 
 ```bash
-yarn add medusa-plugin-abandoned-cart
+yarn add @luluhoc/medusa-plugin-abandoned-cart
 ```
 
 ```ts title="medusa-config.ts"
@@ -28,7 +28,7 @@ module.exports = defineConfig({
   // ...
   plugins: [
     {
-      resolve: "medusa-plugin-abandoned-cart",
+      resolve: "@luluhoc/medusa-plugin-abandoned-cart",
       options: {
         storefrontUrl: process.env.STOREFRONT_URL,
         stages: [
@@ -98,7 +98,7 @@ application's environment. [Why →](./docs/configuration.md#the-sweep-schedule)
 
 **Workflows** — `syncAbandonedCartsWorkflow`, `sendAbandonedCartNotificationsWorkflow`,
 `markAbandonedCartRecoveredWorkflow`, `markAbandonedCartConvertedWorkflow`, all exported from
-`medusa-plugin-abandoned-cart/workflows`. [Usage →](./docs/recipes.md)
+`@luluhoc/medusa-plugin-abandoned-cart/workflows`. [Usage →](./docs/recipes.md)
 
 ---
 
@@ -120,7 +120,7 @@ yarn medusa plugin:publish
 yarn medusa plugin:develop
 
 # in the Medusa application
-yarn medusa plugin:add medusa-plugin-abandoned-cart
+yarn medusa plugin:add @luluhoc/medusa-plugin-abandoned-cart
 yarn medusa db:migrate
 yarn dev
 ```

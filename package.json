@@ -1,5 +1,5 @@
 {
-  "name": "medusa-plugin-abandoned-cart",
+  "name": "@luluhoc/medusa-plugin-abandoned-cart",
   "version": "0.1.0",
   "description": "Abandoned cart detection, multi-stage recovery notifications, and recovery analytics for Medusa v2.",
   "license": "MIT",

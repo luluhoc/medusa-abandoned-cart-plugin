@@ -5,7 +5,7 @@ All options go in the plugin entry in `medusa-config.ts`:
 ```ts title="medusa-config.ts"
 plugins: [
   {
-    resolve: "medusa-plugin-abandoned-cart",
+    resolve: "@luluhoc/medusa-plugin-abandoned-cart",
     options: {
       // everything on this page
     },

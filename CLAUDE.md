@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A **Medusa v2 plugin** (`medusa-plugin-abandoned-cart`), not an application. Nothing here runs on its
+A **Medusa v2 plugin** (`@luluhoc/medusa-plugin-abandoned-cart`), not an application. Nothing here runs on its
 own — it is compiled into `.medusa/server/` and installed into a Medusa application. Targets Medusa
 **2.19.0+**, Node 20+.
 
@@ -26,7 +26,7 @@ To exercise a change end-to-end you need a real Medusa application:
 # here
 yarn medusa plugin:publish && yarn medusa plugin:develop
 # in the Medusa app
-yarn medusa plugin:add medusa-plugin-abandoned-cart && yarn medusa db:migrate && yarn dev
+yarn medusa plugin:add @luluhoc/medusa-plugin-abandoned-cart && yarn medusa db:migrate && yarn dev
 ```
 
 `POST /admin/abandoned-carts/sweep` runs a full pass immediately, which is the fastest way to test
