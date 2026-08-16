@@ -76,6 +76,8 @@ export const findAbandonedCartCandidatesStep = createStep(
         "items.unit_price",
         "customer.id",
         "customer.has_account",
+        "customer.metadata",
+        "shipping_address.country_code",
       ],
       filters,
       pagination: {
@@ -121,6 +123,7 @@ export const findAbandonedCartCandidatesStep = createStep(
         sales_channel_id: cart.sales_channel_id ?? null,
         region_id: cart.region_id ?? null,
         currency_code: cart.currency_code ?? null,
+        locale: service.resolveLocaleForCart(cart),
         item_count: items.length,
         subtotal,
         cart_updated_at: new Date(cart.updated_at).toISOString(),

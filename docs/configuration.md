@@ -27,6 +27,26 @@ a plugin that silently sends nothing — see [Validation rules](#validation-rule
 | `channel` | `string` | `"email"` | Notification channel used by stages that don't set their own. |
 | `notificationData` | `object` | `{}` | Static values merged into every notification payload's `data`. |
 
+### Localization
+
+Every option here is optional; without them the plugin behaves exactly as it did before locales
+existed. Full guide: [Localization](./localization.md).
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `locales` | `string[]` | `[]` | The locales you send in. Constrains resolution and validates every locale-keyed option at boot. |
+| `defaultLocale` | `string` | – | Locale used when nothing else resolves. Without it, unresolved carts have `locale: null`. |
+| `localeMetadataKey` | `string` | `"locale"` | Metadata key read from the cart, then the customer. |
+| `localeByCountry` | `object` | `{}` | Locale per shipping-address country code. |
+| `localeByRegion` | `object` | `{}` | Locale per region id. |
+| `localeBySalesChannel` | `object` | `{}` | Locale per sales channel id. |
+| `resolveLocale` | `function` | – | Your own rule. Runs before every built-in source; return `null` to fall through. |
+| `templates` | `object` | `{}` | Per-locale template ids for stages that don't set their own. |
+| `templatePattern` | `string` | – | Derives a template id, e.g. `"{template}-{lang}"`. Requires `locales`. |
+| `localeData` | `object` | `{}` | Per-locale additions to `notificationData`. |
+| `storefrontUrlByLocale` | `object` | `{}` | Per-locale origins, for one-domain-per-language setups. |
+| `recoveryPathByLocale` | `object` | `{}` | Per-locale recovery paths. |
+
 ### Detection
 
 | Option | Type | Default | Description |
@@ -64,8 +84,10 @@ type Stage = {
   id?: string           // defaults to "stage-1", "stage-2", …
   delay: Duration       // required
   template?: string     // falls back to the top-level `template`
+  templates?: object    // per-locale template ids, e.g. { fr: "d-reminder-fr" }
   channel?: string      // falls back to the top-level `channel`
   data?: object         // merged into this stage's notification payload
+  localeData?: object   // per-locale additions to `data`
 }
 ```
 
@@ -78,7 +100,7 @@ stages: [
 ```
 
 `id` is stored on every notification row, so keep it stable if you want to compare stage performance
-over time. `data` is handy for stage-specific template variables — a discount code on the last email,
+over time. `templates` and `localeData` are covered in [Localization](./localization.md). `data` is handy for stage-specific template variables — a discount code on the last email,
 a different subject line, a campaign tag.
 
 ### Multi-channel sequences
@@ -136,7 +158,9 @@ The plugin throws at boot if:
   second reminder was already overdue when the first one sent;
 - two stages share an `id`;
 - `maxAge` is not longer than the first stage's delay, which would make it impossible for any cart to
-  qualify.
+  qualify;
+- a locale option is malformed or references a locale outside `locales` — see
+  [Localization](./localization.md#validation).
 
 ## Recipes
 
@@ -185,6 +209,21 @@ options: {
   salesChannelIds: ["sc_01J…"],
   stages: [{ delay: "3h", template: "d-outlet" }],
   notificationData: { campaign: "outlet-recovery-q3" },
+}
+```
+
+### Multi-language — one sequence, three languages
+
+```ts
+options: {
+  storefrontUrl: process.env.STOREFRONT_URL,
+  locales: ["en", "fr", "de"],
+  defaultLocale: "en",
+  recoveryPath: "/{lang}/cart/recover/{token}",
+  stages: [
+    { id: "reminder",  delay: "4h", template: "d-en", templates: { fr: "d-fr", de: "d-de" } },
+    { id: "last-call", delay: "3d", template: "d-en-2", templates: { fr: "d-fr-2", de: "d-de-2" } },
+  ],
 }
 ```
 

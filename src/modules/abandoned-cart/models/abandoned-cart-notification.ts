@@ -10,6 +10,8 @@ export const AbandonedCartNotification = model
     stage_index: model.number(),
     channel: model.text(),
     template: model.text(),
+    /** The locale this attempt was rendered in, `null` when none resolved. */
+    locale: model.text().nullable(),
     to: model.text(),
     /** The id of the record created by the Notification Module, when sending succeeded. */
     notification_id: model.text().nullable(),

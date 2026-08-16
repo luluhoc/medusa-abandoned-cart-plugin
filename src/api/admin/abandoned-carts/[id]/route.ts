@@ -53,10 +53,25 @@ export const POST = async (
     )
   }
 
+  const body = { ...req.validatedBody }
+
+  if (body.locale) {
+    const locale = service.matchLocale(body.locale)
+
+    if (!locale) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Unsupported abandoned cart locale "${body.locale}".`
+      )
+    }
+
+    body.locale = locale
+  }
+
   const [updated] = await service.updateAbandonedCarts([
     {
       id: req.params.id,
-      ...req.validatedBody,
+      ...body,
     },
   ])
 

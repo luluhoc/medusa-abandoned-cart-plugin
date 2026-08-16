@@ -19,6 +19,7 @@ every sweep.
 | `sales_channel_id` | `text?` | |
 | `region_id` | `text?` | |
 | `currency_code` | `text?` | |
+| `locale` | `text?` | The locale this cart is chased in. `null` when none resolved. See [Localization](./localization.md). |
 | `item_count` | `integer` | Line items at the last sweep. Default `0`. |
 | `subtotal` | `numeric` | Sum of `unit_price × quantity`, in the cart's currency. Stored as a Medusa big number, so there's a companion `raw_subtotal` column. |
 | `status` | `enum` | See [the lifecycle](./how-it-works.md#the-status-lifecycle). Default `pending`. |
@@ -32,7 +33,7 @@ every sweep.
 | `created_at`, `updated_at`, `deleted_at` | `timestamptz` | Added by Medusa. |
 
 **Indexes** — unique on `cart_id`, unique on `token`, composite on `(status, stage_index)` for the
-due-selection query, and one on `email`.
+due-selection query, and one each on `email` and `locale`.
 
 ## `abandoned_cart_notification`
 
@@ -45,7 +46,8 @@ One row per send *attempt*, successful or not.
 | `stage_id` | `text` | The stage's configured id. |
 | `stage_index` | `integer` | Its position in the sequence. |
 | `channel` | `text` | `email`, `sms`, … |
-| `template` | `text` | The provider template id used. |
+| `template` | `text` | The provider template id used, after locale resolution. |
+| `locale` | `text?` | The locale this attempt went out in. Can differ from the parent's when the shopper switched language mid-sequence. |
 | `to` | `text` | Recipient. |
 | `notification_id` | `text?` | The Notification Module's record id, on success. |
 | `error` | `text?` | The provider's message, on failure. |

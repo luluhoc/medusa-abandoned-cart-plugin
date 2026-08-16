@@ -15,6 +15,7 @@ Everything you need to run, configure and extend `@luluhoc/medusa-plugin-abandon
 | Guide | What it covers |
 | --- | --- |
 | [Notifications](./notifications.md) | The exact payload each stage sends, template examples, and per-provider notes. |
+| [Localization](./localization.md) | Sending in the shopper's language: locale resolution, per-locale templates and data, localized recovery links. |
 | [Storefront integration](./storefront.md) | Recovery links, the token exchange, and drop-in route handlers. |
 | [API reference](./api-reference.md) | Every store and admin route, with request and response shapes. |
 | [Data model](./data-model.md) | Tables, columns, module links, and how to query them. |

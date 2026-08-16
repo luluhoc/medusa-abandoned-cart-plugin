@@ -17,6 +17,7 @@ export const ABANDONED_CART_LIST_FIELDS = [
   "customer_id",
   "sales_channel_id",
   "currency_code",
+  "locale",
   "item_count",
   "subtotal",
   "status",

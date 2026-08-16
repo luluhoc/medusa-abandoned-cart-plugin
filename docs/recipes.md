@@ -17,7 +17,7 @@ import {
 | Workflow | Input | Returns |
 | --- | --- | --- |
 | `syncAbandonedCartsWorkflow` | `{ limit?, offset? }` | `{ created, updated, count, scanned, qualified }` |
-| `sendAbandonedCartNotificationsWorkflow` | `{ ids?, limit?, force?, stage_id? }` | `{ sent, failed, closed, notification_ids }` |
+| `sendAbandonedCartNotificationsWorkflow` | `{ ids?, limit?, force?, stage_id?, locale? }` | `{ sent, failed, closed, notification_ids }` |
 | `markAbandonedCartRecoveredWorkflow` | `{ id? , token?, cart_id? }` | `{ record }` |
 | `markAbandonedCartConvertedWorkflow` | `{ order_id, cart_id? }` | `{ record }` |
 
@@ -35,7 +35,8 @@ await sendAbandonedCartNotificationsWorkflow(container).run({
 })
 ```
 
-`force: true` ignores stage delays. Without it, `ids` still respects each record's schedule, which is
+`locale` overrides the language for that run; without it each cart resolves its own. `force: true`
+ignores stage delays. Without it, `ids` still respects each record's schedule, which is
 useful when you want to notify a subset on their normal cadence.
 
 The individual steps are exported too, if you're composing your own workflow:

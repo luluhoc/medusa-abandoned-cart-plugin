@@ -18,11 +18,13 @@ export const GetAdminAbandonedCartsSchema = createFindParams({
   email: z.string().optional(),
   cart_id: z.string().optional(),
   customer_id: z.string().optional(),
+  locale: z.union([z.string(), z.array(z.string())]).optional(),
 })
 
 export const PostAdminAbandonedCartSchema = z
   .object({
     status: StatusEnum.optional(),
+    locale: z.string().nullable().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict()
@@ -31,6 +33,8 @@ export const PostAdminAbandonedCartSendSchema = z
   .object({
     /** Send a specific stage instead of the record's next one. */
     stage_id: z.string().optional(),
+    /** Send in this locale instead of the one resolved from the cart. */
+    locale: z.string().optional(),
   })
   .strict()
 

@@ -14,6 +14,8 @@ export type SelectDueAbandonedCartsStepInput = {
   force?: boolean
   /** Send this specific stage instead of the record's next one. Requires `force`. */
   stage_id?: string
+  /** Send in this locale instead of the one resolved from the cart. */
+  locale?: string
 }
 
 export type DueAbandonedCart = {
@@ -21,6 +23,7 @@ export type DueAbandonedCart = {
   cart_id: string
   token: string
   to: string
+  locale: string | null
   stage: ResolvedStage
   cart: Record<string, any>
 }
@@ -43,6 +46,15 @@ export const selectDueAbandonedCartsStep = createStep(
     const query = container.resolve(ContainerRegistrationKeys.QUERY)
     const options = service.getOptions()
     const now = Date.now()
+
+    const overrideLocale = input.locale ? service.matchLocale(input.locale) : null
+
+    if (input.locale && !overrideLocale) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Unsupported abandoned cart locale "${input.locale}".`
+      )
+    }
 
     const records = input.ids?.length
       ? await service.listAbandonedCarts(
@@ -108,6 +120,7 @@ export const selectDueAbandonedCartsStep = createStep(
         "email",
         "currency_code",
         "completed_at",
+        "sales_channel_id",
         "metadata",
         "items.*",
         "customer.*",
@@ -155,6 +168,13 @@ export const selectDueAbandonedCartsStep = createStep(
         cart_id: record.cart_id,
         token: record.token,
         to,
+        // Resolved against the live cart, so a shopper who switched language
+        // since detection gets the email in the language they last used. The
+        // stored locale is the fallback when nothing resolves any more.
+        locale:
+          overrideLocale ??
+          service.resolveLocaleForCart(cart) ??
+          service.matchLocale(record.locale),
         stage,
         cart,
       })

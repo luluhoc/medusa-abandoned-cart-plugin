@@ -52,6 +52,7 @@ Paginated list of tracked carts.
 | `email` | `string` | Exact match. |
 | `cart_id` | `string` | Exact match. |
 | `customer_id` | `string` | Exact match. |
+| `locale` | `string \| string[]` | Exact match on the stored locale tag. See [Localization](./localization.md). |
 | `fields` | `string` | Comma-separated field selection, including relations (`+notifications.*`). |
 | `order` | `string` | Sort field; prefix with `-` for descending (`-cart_updated_at`). |
 | `limit` | `number` | Default `20`. |
@@ -69,6 +70,7 @@ Paginated list of tracked carts.
       "customer_id": "cus_01J…",
       "sales_channel_id": "sc_01J…",
       "currency_code": "usd",
+      "locale": "fr",
       "item_count": 2,
       "subtotal": 129.5,
       "status": "notified",
@@ -123,12 +125,24 @@ Funnel counts, rates, recovered value, and the configured sequence.
     "notified": 123,
     "recovery_rate": 0.2439,
     "conversion_rate": 0.0894,
-    "recovered_value": [{ "currency_code": "usd", "amount": 2841.5 }]
+    "recovered_value": [{ "currency_code": "usd", "amount": 2841.5 }],
+    "by_locale": [
+      { "locale": "en", "total": 90, "notified": 81, "converted": 8 },
+      { "locale": "fr", "total": 47, "notified": 42, "converted": 3 }
+    ]
   },
   "config": {
     "enabled": true,
+    "locales": ["en", "fr"],
+    "default_locale": "en",
     "stages": [
-      { "id": "reminder-1", "delay_ms": 3600000, "template": "d-1a2b3c", "channel": "email" }
+      {
+        "id": "reminder-1",
+        "delay_ms": 3600000,
+        "template": "d-1a2b3c",
+        "channel": "email",
+        "templates": { "fr": "d-4d5e6f" }
+      }
     ]
   }
 }
@@ -142,6 +156,7 @@ Funnel counts, rates, recovered value, and the configured sequence.
 | `recovery_rate` | `(recovered + converted) / notified`. Carts that came back. |
 | `conversion_rate` | `converted / notified`. Carts that bought. |
 | `recovered_value` | Summed subtotal of converted carts, per currency. |
+| `by_locale` | The same funnel per configured locale. Empty unless `locales` is set. |
 
 > `recovered_value` sums at most **1000** converted carts per currency window. Past that, use the
 > list route with `status=converted` and aggregate yourself, or query the table directly.
@@ -165,6 +180,7 @@ One record with its notifications, cart, customer and order.
         "stage_index": 0,
         "channel": "email",
         "template": "d-1a2b3c",
+        "locale": "fr",
         "to": "shopper@example.com",
         "notification_id": "noti_01J…",
         "error": null,
@@ -189,6 +205,7 @@ Update a record. Rejects unknown fields.
 | Field | Type | Description |
 | --- | --- | --- |
 | `status` | `string` | Any status. `dismissed` stops the sequence permanently. |
+| `locale` | `string \| null` | Override the locale future reminders are sent in. Normalized on write. |
 | `metadata` | `object` | Free-form. |
 
 **Response `200`** — `{ "abandoned_cart": { … } }`
@@ -209,6 +226,7 @@ Send this cart's next stage now, ignoring its delay.
 | Field | Type | Description |
 | --- | --- | --- |
 | `stage_id` | `string` | Send this stage instead of the next one. Useful for re-sending. |
+| `locale` | `string` | Send in this locale instead of the one resolved from the cart. |
 
 **Response `200`**
 
@@ -226,7 +244,8 @@ Send this cart's next stage now, ignoring its delay.
 `sent: 0` with `closed: 0` means there was nothing to send — the sequence is finished, or the cart is
 `converted`. `closed: 1` means the cart was stale and got closed out instead.
 
-**Errors** — `404` when the id is unknown; `400` when `stage_id` doesn't match a configured stage.
+**Errors** — `404` when the id is unknown; `400` when `stage_id` doesn't match a configured stage, or
+when `locale` isn't one of the configured `locales`.
 
 ### `POST /admin/abandoned-carts/sweep`
 

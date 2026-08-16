@@ -74,6 +74,20 @@ send. `["1h", "24h"]` means one hour and 24 hours after the cart went quiet. `re
 strictly increasing delays and `maxAge > stages[0].delay`, throwing at boot rather than silently
 sending nothing. A cart advances at most **one stage per sweep**.
 
+### Localization
+
+Opt-in and inert until configured. A cart's locale is resolved from the `resolveLocale` option, cart
+metadata, customer metadata, country, region, sales channel, then `defaultLocale`
+([service.ts](src/modules/abandoned-cart/service.ts)); it is stored on the record at detection and
+**re-resolved against the live cart at send time**, so the stored value is only a fallback. The
+locale then selects the stage's template (`stage.templates` → `templates` → `templatePattern` →
+`stage.template`), merges `localeData`, and localizes the recovery URL. Every lookup walks the
+fallback chain `fr-CA` → `fr` ([locale.ts](src/utils/locale.ts)).
+
+Template resolution always falls back to the untranslated `stage.template`: locale is a routing
+hint, never a gate on delivery. Locale-keyed options are validated against `locales` at boot,
+because a mistyped key is otherwise an invisible no-op.
+
 ### State invariants
 
 - `stage_index` only ever moves forward — see the `Math.max` in

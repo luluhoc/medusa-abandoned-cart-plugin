@@ -17,6 +17,8 @@ export const AbandonedCart = model
     sales_channel_id: model.text().nullable(),
     region_id: model.text().nullable(),
     currency_code: model.text().nullable(),
+    /** The locale this cart is chased in, resolved at detection time. */
+    locale: model.text().nullable(),
     item_count: model.number().default(0),
     subtotal: model.bigNumber().nullable(),
     status: model
@@ -58,5 +60,8 @@ export const AbandonedCart = model
     },
     {
       on: ["email"],
+    },
+    {
+      on: ["locale"],
     },
   ])

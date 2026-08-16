@@ -167,8 +167,10 @@ type Stage = {
   id?: string                     // default "stage-1", "stage-2", …
   delay: Duration                 // REQUIRED
   template?: string               // default: top-level `template`
+  templates?: Record<string, string>                    // per-locale template ids
   channel?: string                // default: top-level `channel`
   data?: Record<string, unknown>  // merged into this stage's payload
+  localeData?: Record<string, Record<string, unknown>>  // per-locale additions to `data`
 }
 
 type Options = {
@@ -196,12 +198,33 @@ type Options = {
   // throughput
   batchSize?: number                    // default 100
   notificationBatchSize?: number        // default 100
+
+  // localization — all optional; omit them all and behaviour is unchanged
+  locales?: string[]                    // default [] — the supported set
+  defaultLocale?: string                // no default — otherwise locale stays null
+  localeMetadataKey?: string            // default "locale"
+  localeByCountry?: Record<string, string>       // shipping-address country code -> locale
+  localeByRegion?: Record<string, string>        // region id -> locale
+  localeBySalesChannel?: Record<string, string>  // sales channel id -> locale
+  resolveLocale?: (context: AbandonedCartLocaleContext) => string | null | undefined
+  templates?: Record<string, string>    // locale -> template id, for every stage
+  templatePattern?: string              // e.g. "{template}-{lang}". REQUIRES `locales`
+  localeData?: Record<string, Record<string, unknown>>  // locale -> payload data
+  storefrontUrlByLocale?: Record<string, string>
+  recoveryPathByLocale?: Record<string, string>
 }
 ```
 
+Locale resolution, first match wins: `resolveLocale` → `cart.metadata[localeMetadataKey]` →
+`customer.metadata[localeMetadataKey]` → `localeByCountry` → `localeByRegion` →
+`localeBySalesChannel` → `defaultLocale`, then `null`. Template resolution, first match wins:
+`stage.templates[locale]` → `templates[locale]` → `templatePattern` → `stage.template`. Both walk the
+locale fallback chain (`fr-CA` → `fr`). Full behaviour:
+[docs/localization.md](./docs/localization.md).
+
 ### Constraints
 
-Violating any of the first four throws at boot with a clear message:
+Violating any of the first five throws at boot with a clear message:
 
 1. Stage delays must **strictly increase**. Delays are cumulative from the cart's last activity, not
    gaps between emails.
@@ -209,11 +232,14 @@ Violating any of the first four throws at boot with a clear message:
 3. Stage `id`s must be unique.
 4. Durations need a unit (`"4h"`) or must be a number (minutes). `"4"` is invalid; `4` means four
    minutes.
-5. Prices are **decimals in the cart's currency**, not minor units. `minSubtotal: 25` is $25.00.
+5. Locale-keyed options are checked against `locales`. `templates: { ge: … }` with `locales: ["de"]`
+   throws — it would otherwise be an invisible no-op. `templatePattern` without `locales`, or
+   without `{locale}`/`{lang}` in it, also throws.
+6. Prices are **decimals in the cart's currency**, not minor units. `minSubtotal: 25` is $25.00.
    Never multiply or divide by 100.
-6. The sweep advances a cart **one stage per run**. Set `ABANDONED_CART_CRON` shorter than the gap
+7. The sweep advances a cart **one stage per run**. Set `ABANDONED_CART_CRON` shorter than the gap
    between the two closest stages.
-7. Scheduled jobs run **per instance**. If the app runs multiple server instances, run the sweep on a
+8. Scheduled jobs run **per instance**. If the app runs multiple server instances, run the sweep on a
    single worker or duplicate emails will go out.
 
 ### Failure modes
@@ -228,6 +254,8 @@ Violating any of the first four throws at boot with a clear message:
 | `No provider found for channel: email` | No notification provider | Edit A above |
 | Carts never detected | No email on cart, or thresholds too strict | [docs/troubleshooting.md](./docs/troubleshooting.md#2-are-carts-being-detected) |
 | `recovery_url` is `null` in the email | `storefrontUrl` not set | Step 3 |
+| Emails go out untranslated | Cart resolved to no locale, or the locale has no `templates` entry — the plugin falls back rather than skipping | [docs/localization.md](./docs/localization.md) |
+| Boot error naming a locale | A locale-keyed option references a locale outside `locales` | Constraint 5 |
 
 Failed sends do not advance the stage, so they retry on every sweep until fixed or the cart ages past
 `maxAge`. A wrong template id therefore produces a growing pile of failures rather than an obvious
@@ -240,7 +268,7 @@ Import paths available to the host application:
 ```ts
 import {
   syncAbandonedCartsWorkflow,              // { limit?, offset? }
-  sendAbandonedCartNotificationsWorkflow,  // { ids?, limit?, force?, stage_id? }
+  sendAbandonedCartNotificationsWorkflow,  // { ids?, limit?, force?, stage_id?, locale? }
   markAbandonedCartRecoveredWorkflow,      // { id? | token? | cart_id? }
   markAbandonedCartConvertedWorkflow,      // { order_id, cart_id? }
 } from "@luluhoc/medusa-plugin-abandoned-cart/workflows"
@@ -310,6 +338,8 @@ Do not break these without deliberately changing the documented behaviour:
 7. **Attribution must never break order placement.** The `order.placed` subscriber catches and logs.
 8. **Bounded loops.** `runAbandonedCartSweep` caps detection at 200 pages and notification at 10
    rounds; keep a cap if you change the loops.
+9. **An unresolved or untranslated locale still sends.** Template resolution always falls back to the
+   stage's plain `template`; locale is a routing hint, never a gate on delivery.
 
 ### If you change the option schema
 
@@ -318,6 +348,8 @@ Do not break these without deliberately changing the documented behaviour:
 2. Update the schema block in this file and the tables in
    [docs/configuration.md](./docs/configuration.md#options).
 3. Update the option list in [README.md](./README.md#at-a-glance).
+4. If the option is locale-keyed, validate it against `locales` in `resolveOptions` and add it to
+   [docs/localization.md](./docs/localization.md#validation).
 
 ### If you change a data model
 
@@ -333,6 +365,7 @@ Do not break these without deliberately changing the documented behaviour:
 | [docs/configuration.md](./docs/configuration.md) | Option reference + recipes |
 | [docs/how-it-works.md](./docs/how-it-works.md) | Sweep, timing model, lifecycle, failure handling |
 | [docs/notifications.md](./docs/notifications.md) | Payload reference + templates |
+| [docs/localization.md](./docs/localization.md) | Locale resolution, per-locale templates/data/links |
 | [docs/storefront.md](./docs/storefront.md) | Token exchange + route handlers |
 | [docs/api-reference.md](./docs/api-reference.md) | All routes |
 | [docs/data-model.md](./docs/data-model.md) | Tables, links, queries |

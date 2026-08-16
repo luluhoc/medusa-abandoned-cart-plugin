@@ -71,6 +71,7 @@ export const upsertAbandonedCartsStep = createStep(
           sales_channel_id: candidate.sales_channel_id,
           region_id: candidate.region_id,
           currency_code: candidate.currency_code,
+          locale: candidate.locale,
           item_count: candidate.item_count,
           subtotal: candidate.subtotal,
           cart_updated_at: new Date(candidate.cart_updated_at),
@@ -95,6 +96,7 @@ export const upsertAbandonedCartsStep = createStep(
         sales_channel_id: candidate.sales_channel_id,
         region_id: candidate.region_id,
         currency_code: candidate.currency_code,
+        locale: candidate.locale,
         item_count: candidate.item_count,
         subtotal: candidate.subtotal,
         cart_updated_at: new Date(candidate.cart_updated_at),
@@ -109,6 +111,7 @@ export const upsertAbandonedCartsStep = createStep(
       const unchanged =
         !hasNewActivity &&
         record.email === candidate.email &&
+        record.locale === candidate.locale &&
         record.item_count === candidate.item_count &&
         Number(record.subtotal ?? 0) === candidate.subtotal
 
@@ -123,6 +126,7 @@ export const upsertAbandonedCartsStep = createStep(
         sales_channel_id: record.sales_channel_id,
         region_id: record.region_id,
         currency_code: record.currency_code,
+        locale: record.locale,
         item_count: record.item_count,
         subtotal: record.subtotal,
         cart_updated_at: record.cart_updated_at,

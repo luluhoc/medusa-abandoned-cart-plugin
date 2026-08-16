@@ -31,7 +31,7 @@ Each page is then filtered in memory for the thresholds that depend on line item
 
 Whatever survives is upserted into `abandoned_cart`. New carts get a row with a freshly generated
 recovery token and `status: "pending"`. Carts already tracked get their snapshot refreshed — email,
-item count, subtotal, and `cart_updated_at`.
+item count, subtotal, locale, and `cart_updated_at`.
 
 Detection stops after 200 pages as a safety bound. If it hits that with carts left over, it logs a
 warning telling you to raise `batchSize` or shorten `maxAge`.
@@ -43,9 +43,12 @@ activity first, then:
 
 1. **Re-validates against the live cart.** A cart that was completed, emptied or deleted since
    detection is closed out instead of emailed — see [Stale carts](#stale-carts).
-2. **Sends one notification per cart**, isolated in its own try/catch, so a single bad address or
+2. **Re-resolves the locale** from that same live cart, so a shopper who switched language after
+   abandoning is emailed in the language they last used. The value stored at detection is the
+   fallback. See [Localization](./localization.md#when-it-is-resolved).
+3. **Sends one notification per cart**, isolated in its own try/catch, so a single bad address or
    provider hiccup can't cancel the batch.
-3. **Records the outcome** in `abandoned_cart_notification` and advances `stage_index`.
+4. **Records the outcome** in `abandoned_cart_notification` and advances `stage_index`.
 
 The pass repeats while it keeps filling a whole page, up to 10 rounds per sweep.
 

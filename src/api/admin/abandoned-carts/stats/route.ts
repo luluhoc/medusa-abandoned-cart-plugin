@@ -30,11 +30,14 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     stats,
     config: {
       enabled: options.enabled,
+      locales: options.locales,
+      default_locale: options.defaultLocale,
       stages: options.stages.map((stage) => ({
         id: stage.id,
         delay_ms: stage.delayMs,
         template: stage.template,
         channel: stage.channel,
+        templates: stage.templates,
       })),
     },
   })

@@ -3,6 +3,7 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk"
 
 import { ABANDONED_CART_MODULE } from "../../modules/abandoned-cart"
 import type AbandonedCartModuleService from "../../modules/abandoned-cart/service"
+import { baseLanguage } from "../../utils/locale"
 import type { SelectDueAbandonedCartsStepOutput } from "./select-due-abandoned-carts"
 
 export type SendAbandonedCartNotificationsStepInput =
@@ -15,6 +16,7 @@ export type AbandonedCartSendResult = {
   stage_index: number
   channel: string
   template: string
+  locale: string | null
   to: string
   notification_id: string | null
   error: string | null
@@ -49,25 +51,30 @@ export const sendAbandonedCartNotificationsStep = createStep(
     )
     const notificationModuleService = container.resolve(Modules.NOTIFICATION)
     const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
-    const options = service.getOptions()
 
     const results: AbandonedCartSendResult[] = []
 
     for (const item of input.items ?? []) {
-      const { cart, stage } = item
+      const { cart, stage, locale } = item
+      const delivery = service.getStageDelivery(stage, locale)
 
       const payload = {
         to: item.to,
-        channel: stage.channel,
-        template: stage.template,
+        channel: delivery.channel,
+        template: delivery.template,
         data: {
-          ...options.notificationData,
-          ...stage.data,
+          ...delivery.data,
           stage: { id: stage.id, index: stage.index },
           cart_id: item.cart_id,
           token: item.token,
-          recovery_url: service.buildRecoveryUrl(item.token, item.cart_id),
+          recovery_url: service.buildRecoveryUrl(
+            item.token,
+            item.cart_id,
+            locale
+          ),
           email: item.to,
+          locale,
+          language: locale ? baseLanguage(locale) : null,
           currency_code: cart.currency_code,
           customer: {
             first_name:
@@ -109,8 +116,9 @@ export const sendAbandonedCartNotificationsStep = createStep(
           cart_id: item.cart_id,
           stage_id: stage.id,
           stage_index: stage.index,
-          channel: stage.channel,
-          template: stage.template,
+          channel: delivery.channel,
+          template: delivery.template,
+          locale,
           to: item.to,
           notification_id: created?.id ?? null,
           error: null,
@@ -127,8 +135,9 @@ export const sendAbandonedCartNotificationsStep = createStep(
           cart_id: item.cart_id,
           stage_id: stage.id,
           stage_index: stage.index,
-          channel: stage.channel,
-          template: stage.template,
+          channel: delivery.channel,
+          template: delivery.template,
+          locale,
           to: item.to,
           notification_id: null,
           error: message,

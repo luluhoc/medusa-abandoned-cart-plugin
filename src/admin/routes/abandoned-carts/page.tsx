@@ -22,6 +22,7 @@ type AbandonedCart = {
   cart_id: string
   email: string | null
   currency_code: string | null
+  locale: string | null
   item_count: number
   subtotal: number | null
   status: string
@@ -48,9 +49,17 @@ type StatsResponse = {
     recovery_rate: number
     conversion_rate: number
     recovered_value: { currency_code: string; amount: number }[]
+    by_locale: {
+      locale: string
+      total: number
+      notified: number
+      converted: number
+    }[]
   }
   config: {
     enabled: boolean
+    locales: string[]
+    default_locale: string | null
     stages: { id: string; delay_ms: number; template: string; channel: string }[]
   }
 }
@@ -109,9 +118,10 @@ const AbandonedCartsPage = () => {
   const queryClient = useQueryClient()
   const [pageIndex, setPageIndex] = useState(0)
   const [status, setStatus] = useState("all")
+  const [locale, setLocale] = useState("all")
 
   const listQuery = useQuery<ListResponse>({
-    queryKey: ["abandoned-carts", pageIndex, status],
+    queryKey: ["abandoned-carts", pageIndex, status, locale],
     queryFn: () =>
       sdk.client.fetch<ListResponse>("/admin/abandoned-carts", {
         query: {
@@ -119,6 +129,7 @@ const AbandonedCartsPage = () => {
           offset: pageIndex * PAGE_SIZE,
           order: "-cart_updated_at",
           ...(status === "all" ? {} : { status }),
+          ...(locale === "all" ? {} : { locale }),
         },
       }),
   })
@@ -179,6 +190,8 @@ const AbandonedCartsPage = () => {
       toast.error(error?.message ?? "The cart could not be dismissed."),
   })
 
+  const locales = statsQuery.data?.config.locales ?? []
+
   const pageCount = Math.max(
     1,
     Math.ceil((listQuery.data?.count ?? 0) / PAGE_SIZE)
@@ -230,6 +243,27 @@ const AbandonedCartsPage = () => {
           </Text>
         </div>
         <div className="flex items-center gap-2">
+          {locales.length > 0 && (
+            <Select
+              value={locale}
+              onValueChange={(value) => {
+                setLocale(value)
+                setPageIndex(0)
+              }}
+            >
+              <Select.Trigger className="w-32">
+                <Select.Value placeholder="Locale" />
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="all">All locales</Select.Item>
+                {locales.map((option) => (
+                  <Select.Item key={option} value={option}>
+                    {option}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select>
+          )}
           <Select
             value={status}
             onValueChange={(value) => {
@@ -278,6 +312,9 @@ const AbandonedCartsPage = () => {
             <Table.Row>
               <Table.HeaderCell>Email</Table.HeaderCell>
               <Table.HeaderCell>Status</Table.HeaderCell>
+              {locales.length > 0 && (
+                <Table.HeaderCell>Locale</Table.HeaderCell>
+              )}
               <Table.HeaderCell>Items</Table.HeaderCell>
               <Table.HeaderCell>Subtotal</Table.HeaderCell>
               <Table.HeaderCell>Stage</Table.HeaderCell>
@@ -302,6 +339,9 @@ const AbandonedCartsPage = () => {
                     {record.status}
                   </StatusBadge>
                 </Table.Cell>
+                {locales.length > 0 && (
+                  <Table.Cell>{record.locale ?? "—"}</Table.Cell>
+                )}
                 <Table.Cell>{record.item_count}</Table.Cell>
                 <Table.Cell>
                   {formatMoney(record.subtotal, record.currency_code)}

@@ -66,6 +66,7 @@ export const recordAbandonedCartNotificationsStep = createStep(
       status: record.status,
       stage_index: record.stage_index,
       last_notified_at: record.last_notified_at,
+      locale: record.locale,
     }))
 
     const sentAt = new Date()
@@ -76,6 +77,7 @@ export const recordAbandonedCartNotificationsStep = createStep(
       stage_index: result.stage_index,
       channel: result.channel,
       template: result.template,
+      locale: result.locale,
       to: result.to,
       notification_id: result.notification_id,
       error: result.error,
@@ -105,6 +107,8 @@ export const recordAbandonedCartNotificationsStep = createStep(
         stage_index: Math.max(record.stage_index, result.stage_index + 1),
         status: record.status === "recovered" ? "recovered" : "notified",
         last_notified_at: sentAt,
+        // Keep the record showing the locale we actually sent in.
+        locale: result.locale,
       })
     }
 

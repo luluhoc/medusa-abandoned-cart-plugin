@@ -10,7 +10,8 @@ import type { PostAdminAbandonedCartSendSchemaType } from "../../validators"
  * `POST /admin/abandoned-carts/:id/send`
  *
  * Sends the record's next stage right away, ignoring its delay. Pass
- * `stage_id` in the body to re-send a specific stage instead.
+ * `stage_id` in the body to re-send a specific stage instead, or `locale` to
+ * override the language it goes out in.
  */
 export const POST = async (
   req: MedusaRequest<PostAdminAbandonedCartSendSchemaType>,
@@ -39,6 +40,7 @@ export const POST = async (
       ids: [req.params.id],
       force: true,
       stage_id: req.validatedBody?.stage_id,
+      locale: req.validatedBody?.locale,
     },
   })
 

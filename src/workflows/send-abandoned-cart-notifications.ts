@@ -16,6 +16,8 @@ export type SendAbandonedCartNotificationsWorkflowInput = {
   force?: boolean
   /** Send a specific stage instead of the record's next one. Requires `force`. */
   stage_id?: string
+  /** Send in this locale instead of the one resolved from the cart. */
+  locale?: string
 }
 
 export const SEND_ABANDONED_CART_NOTIFICATIONS_WORKFLOW_ID =

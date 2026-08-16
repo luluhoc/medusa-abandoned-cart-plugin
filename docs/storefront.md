@@ -136,6 +136,20 @@ options: {
 storefront restore the cart without calling the endpoint at all — but then the click isn't recorded
 and your recovery rate stays at zero, so use it only alongside the token.
 
+`{locale}` and `{lang}` are substituted too, so a localized storefront can route the shopper to the
+right language:
+
+```ts
+options: {
+  storefrontUrl: "https://shop.example.com",
+  recoveryPath: "/{lang}/recover?token={token}",   // → /fr/recover?token=9f3aK2…
+}
+```
+
+They collapse to nothing when a cart has no locale, leaving `/recover?token=…`. For a domain per
+language, or a path that isn't just a prefix swap, use `storefrontUrlByLocale` and
+`recoveryPathByLocale` — see [Localization](./localization.md#localized-recovery-links).
+
 Without `storefrontUrl`, `recovery_url` is `null` and the template gets the raw `token` to build its
 own link.
 

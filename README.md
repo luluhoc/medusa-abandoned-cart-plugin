@@ -10,6 +10,8 @@ to the cart so you can see what the sequence actually earned.
   stage's delay, filtered by item count, subtotal, sales channel and customer type.
 - **Sequences** — any number of stages (`1h`, `24h`, `3d`, …), each with its own provider template
   and channel.
+- **Localization** — resolve each cart's locale from its metadata, country, region or your own rule,
+  then send the matching template with a localized recovery link.
 - **Recovery links** — every tracked cart gets an opaque token; the storefront exchanges it for the
   cart id and the click is recorded.
 - **Attribution** — an `order.placed` subscriber marks the cart converted and stores the order id.
@@ -64,6 +66,7 @@ Then add the recovery route to your storefront, and open **Abandoned carts** in 
 | [Configuration](./docs/configuration.md) | Every option, the duration format, the sweep schedule, and setup recipes. |
 | [How it works](./docs/how-it-works.md) | The sweep, the timing model, the status lifecycle, failure handling. |
 | [Notifications](./docs/notifications.md) | The payload each stage sends, template examples, provider notes. |
+| [Localization](./docs/localization.md) | Locale resolution, per-locale templates and data, localized recovery links. |
 | [Storefront integration](./docs/storefront.md) | Recovery links, the token exchange, drop-in route handlers. |
 | [API reference](./docs/api-reference.md) | Every store and admin route. |
 | [Data model](./docs/data-model.md) | Tables, columns, module links, and how to query them. |
@@ -83,8 +86,15 @@ fail silently. It ships in the npm package, so an agent can read it from `node_m
 
 **Options** — `stages`, `template`, `channel`, `notificationData`, `enabled`, `maxAge`, `minItems`,
 `minSubtotal`, `requireEmail`, `onlyRegisteredCustomers`, `salesChannelIds`, `resetOnActivity`,
-`storefrontUrl`, `recoveryPath`, `stopAfterRecovery`, `batchSize`, `notificationBatchSize`.
+`storefrontUrl`, `recoveryPath`, `stopAfterRecovery`, `batchSize`, `notificationBatchSize`, plus the
+localization set — `locales`, `defaultLocale`, `localeMetadataKey`, `localeByCountry`,
+`localeByRegion`, `localeBySalesChannel`, `resolveLocale`, `templates`, `templatePattern`,
+`localeData`, `storefrontUrlByLocale`, `recoveryPathByLocale`.
 [Reference →](./docs/configuration.md#options)
+
+**Languages** — a cart's locale comes from its metadata, the customer, the country, the region, the
+sales channel or your own `resolveLocale`, and picks the stage's template for that locale.
+[Detail →](./docs/localization.md)
 
 **Timing** — stage delays are cumulative and measured from the cart's last activity, so `["1h", "24h"]`
 sends one hour and then 24 hours after the cart goes quiet.

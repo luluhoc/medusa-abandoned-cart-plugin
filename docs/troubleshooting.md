@@ -91,6 +91,26 @@ the cart ages out. Fix the cause and the backlog drains on its own.
   per-cart and don't expire; a 404 means the record or cart is gone.
 - **Missing `x-publishable-api-key`** — every `/store` route needs it, including this one.
 
+## Emails go out in the wrong language
+
+Check, in order:
+
+1. **Is a locale resolving at all?** `GET /admin/abandoned-carts/:id` — a `locale` of `null` means
+   nothing matched. Set `defaultLocale`, or have the storefront write `metadata.locale` onto the
+   cart.
+2. **Is it the locale you expect?** The order of precedence is cart metadata, customer metadata,
+   country, region, sales channel, `defaultLocale` — a stale `customer.metadata.locale` beats your
+   `localeByCountry` map. [Full list](./localization.md#how-a-carts-locale-is-resolved).
+3. **Is the template mapping being used?** The notification row records the `template` actually sent.
+   If it's the untranslated one, the locale had no entry in the stage's `templates`, the top-level
+   `templates`, or `templatePattern` — the plugin falls back rather than skipping the send.
+4. **Did the shopper switch language?** The notification pass re-resolves against the live cart, so
+   `abandoned_cart_notification.locale` can differ from the parent record's. That's working as
+   intended.
+
+A boot error naming a locale means a locale-keyed option references something outside `locales` —
+[the validation list](./localization.md#validation) says which.
+
 ## The numbers look wrong
 
 ### Recovery rate is 0% but people are clearly coming back
