@@ -25,6 +25,7 @@ export type DueAbandonedCart = {
   to: string
   locale: string | null
   stage: ResolvedStage
+  force?: boolean
   cart: Record<string, any>
 }
 
@@ -63,12 +64,25 @@ export const selectDueAbandonedCartsStep = createStep(
         )
       : await service.listAbandonedCarts(
           {
-            status: ["pending", "notified"],
-            stage_index: { $lt: options.stages.length },
+            status: options.stopAfterRecovery ? ["pending", "notified"] : ["pending", "notified", "recovered"],
+            cart_updated_at: { $gte: new Date(now - options.maxAgeMs) },
+            // Apply due-time eligibility before LIMIT, so older rows waiting on
+            // spacing cannot fill a page and starve later eligible carts.
+            $or: options.stages.map((stage, index) => {
+              const previousStage = options.stages[index - 1]
+              return {
+                stage_index: index,
+                cart_updated_at: { $lte: new Date(now - stage.delayMs) },
+                ...(previousStage ? { $or: [
+                  { last_notified_at: null },
+                  { last_notified_at: { $lte: new Date(now - stage.delayMs + previousStage.delayMs) } },
+                ] } : {}),
+              }
+            }),
           },
           {
             take: input.limit ?? options.notificationBatchSize,
-            order: { cart_updated_at: "ASC" },
+            order: { cart_updated_at: "ASC", id: "ASC" },
           }
         )
 
@@ -176,6 +190,7 @@ export const selectDueAbandonedCartsStep = createStep(
           service.resolveLocaleForCart(cart) ??
           service.matchLocale(record.locale),
         stage,
+        force: input.force === true,
         cart,
       })
     }

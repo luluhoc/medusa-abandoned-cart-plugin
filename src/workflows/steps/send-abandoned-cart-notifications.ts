@@ -3,6 +3,11 @@ import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk"
 
 import { ABANDONED_CART_MODULE } from "../../modules/abandoned-cart"
 import type AbandonedCartModuleService from "../../modules/abandoned-cart/service"
+import {
+  ABANDONED_CART_NOTIFICATION_ENRICHER,
+  ABANDONED_CART_DEFERRED,
+  type AbandonedCartNotificationEnricher,
+} from "../../utils/notification-enrichment"
 import { baseLanguage } from "../../utils/locale"
 import type { SelectDueAbandonedCartsStepOutput } from "./select-due-abandoned-carts"
 
@@ -66,6 +71,8 @@ export const sendAbandonedCartNotificationsStep = createStep(
           ...delivery.data,
           stage: { id: stage.id, index: stage.index },
           cart_id: item.cart_id,
+          abandoned_cart_id: item.record_id,
+          forced_send: item.force === true,
           token: item.token,
           recovery_url: service.buildRecoveryUrl(
             item.token,
@@ -104,12 +111,20 @@ export const sendAbandonedCartNotificationsStep = createStep(
       }
 
       try {
-        const notification = await notificationModuleService.createNotifications(
-          payload
+        const prepare = container.resolve<AbandonedCartNotificationEnricher>(
+          ABANDONED_CART_NOTIFICATION_ENRICHER, { allowUnregistered: true }
         )
+        const prepared = prepare ? await prepare(payload, container) : payload
+        if (!prepared) {
+          input.stale.push({ record_id: item.record_id, status: "dismissed" })
+          continue
+        }
+        const notification = await notificationModuleService.createNotifications(prepared)
         const created = Array.isArray(notification)
           ? notification[0]
           : notification
+
+        if (created?.status === "failure") throw new Error("Abandoned cart notification delivery failed")
 
         results.push({
           record_id: item.record_id,
@@ -124,6 +139,7 @@ export const sendAbandonedCartNotificationsStep = createStep(
           error: null,
         })
       } catch (error) {
+        if (error?.code === ABANDONED_CART_DEFERRED) continue
         const message = error instanceof Error ? error.message : String(error)
 
         logger.error(

@@ -27,6 +27,7 @@ type SchedulableRecord = {
   status: AbandonedCartStatus | string
   stage_index: number
   cart_updated_at: string | Date
+  last_notified_at?: string | Date | null
 }
 
 export type AbandonedCartStats = {
@@ -225,7 +226,13 @@ export default class AbandonedCartModuleService extends MedusaService({
 
     const dueAt = new Date(record.cart_updated_at).getTime() + stage.delayMs
 
-    return now >= dueAt ? stage : null
+    // Keep cumulative cart deadlines, with a spacing backstop after a late send.
+    const previousStage = this.options_.stages[record.stage_index - 1]
+    const lastSentAt = record.last_notified_at && new Date(record.last_notified_at).getTime()
+    const spacedDueAt = previousStage && lastSentAt
+      ? Math.max(dueAt, lastSentAt + stage.delayMs - previousStage.delayMs)
+      : dueAt
+    return now >= spacedDueAt ? stage : null
   }
 
   generateRecoveryToken(): string {

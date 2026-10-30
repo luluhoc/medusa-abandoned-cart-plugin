@@ -50,7 +50,7 @@ activity first, then:
    provider hiccup can't cancel the batch.
 4. **Records the outcome** in `abandoned_cart_notification` and advances `stage_index`.
 
-The pass repeats while it keeps filling a whole page, up to 10 rounds per sweep.
+The pass repeats while it keeps filling a whole page, up to 10 rounds per sweep. Due deadlines and late-send spacing are filtered before the database page limit, so waiting records cannot crowd due reminders out of the batch. Recovered records remain eligible when `stopAfterRecovery` is false. Automatic notification selection also honors `maxAge`.
 
 ## The timing model
 
@@ -73,9 +73,8 @@ Two consequences worth internalising:
 - **A stage can never fire twice.** `stage_index` only moves forward, and each stage has exactly one
   due time.
 - **A long-idle cart doesn't get its whole sequence at once.** The sweep advances a cart by one stage
-  per run, so a cart that's been quiet for a week receives stage 1 on the next sweep, stage 2 on the
-  one after, and so on. If that matters to you, add a
-  [catch-up job](./recipes.md#skip-stages-for-very-old-carts) or shorten `maxAge`.
+  per run, and a late send preserves the configured gap before the next stage. Automatic reminders
+  beyond `maxAge` are ignored.
 
 ### When a shopper comes back and edits the cart
 
@@ -163,3 +162,13 @@ subscriber; normally attribution has already happened.
 Each step that writes to the database has a compensation function, so a failure mid-workflow rolls
 back the rows it created or changed. The send step deliberately has none — an email that left the
 building can't be un-sent — which is why sending and recording are separate steps in that order.
+
+### Late sends and host deferral
+
+Stage deadlines remain cumulative from `cart_updated_at`. After downtime, a second deadline
+also preserves the configured gap from the actual previous send: `max(cart deadline,
+last_notified_at + current delay - previous delay)`. This prevents overdue stages from leaving
+in consecutive sweeps. Explicit force sends bypass these timing checks.
+
+A delivery-time host hook may defer temporarily for recent edits or unresolved payments.
+See [Notifications](./notifications.md#delivery-time-host-policy); deferred records do not advance.

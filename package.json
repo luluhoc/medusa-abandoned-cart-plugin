@@ -38,6 +38,7 @@
     "build": "medusa plugin:build",
     "dev": "medusa plugin:develop",
     "generate": "medusa plugin:db:generate",
+    "test": "yarn build && node --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "prepublishOnly": "medusa plugin:build"
   },

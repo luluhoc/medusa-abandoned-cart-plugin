@@ -312,8 +312,8 @@ yarn generate    # medusa plugin:db:generate — needs Postgres and .env
 yarn dev         # watch + publish to the local yalc registry
 ```
 
-Run `yarn typecheck && yarn build` before considering any change complete. There is no test
-suite yet; the build and typecheck are the gate.
+Run `yarn typecheck` and `yarn test` before considering a change complete. `yarn test` builds the
+plugin and runs Node regression tests against the generated handlers. Build and typecheck must pass.
 
 `src/admin` is excluded from `tsconfig.check.json` because Vite compiles it as ESM and `tsc` would
 flag `import.meta` under the CommonJS setting the server build needs. To check it, run tsc directly
@@ -328,7 +328,7 @@ Do not break these without deliberately changing the documented behaviour:
 2. **Sending and recording are separate steps, in that order.** The send step has no compensation
    because an email cannot be un-sent; every step that writes to the database has one.
 3. **Stage delays are measured from `cart_updated_at`**, the cart's last activity — never from
-   `last_notified_at`.
+   `last_notified_at`. A late send adds a minimum-spacing backstop using the configured stage gap.
 4. **`converted` and `dismissed` are terminal.** Detection must never resurrect them.
 5. **Static API routes must not collide with `[id]`.** Medusa sorts static before dynamic
    (`global → wildcard → regex → static → params`), so `/sweep` and `/stats` win over `/:id`. The
