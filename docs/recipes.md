@@ -17,7 +17,7 @@ import {
 | Workflow | Input | Returns |
 | --- | --- | --- |
 | `syncAbandonedCartsWorkflow` | `{ limit?, offset? }` | `{ created, updated, count, scanned, qualified }` |
-| `sendAbandonedCartNotificationsWorkflow` | `{ ids?, limit?, force?, stage_id?, locale? }` | `{ sent, failed, closed, notification_ids }` |
+| `sendAbandonedCartNotificationsWorkflow` | `{ ids?, limit?, force?, stage_id?, locale?, request_id?, exclude_ids? }` | `{ sent, failed, closed, notification_ids, processed_ids, deferred }` |
 | `markAbandonedCartRecoveredWorkflow` | `{ id? , token?, cart_id? }` | `{ record }` |
 | `markAbandonedCartConvertedWorkflow` | `{ order_id, cart_id? }` | `{ record }` |
 

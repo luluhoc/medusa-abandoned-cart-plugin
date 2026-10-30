@@ -31,6 +31,7 @@ export const PostAdminAbandonedCartSchema = z
 
 export const PostAdminAbandonedCartSendSchema = z
   .object({
+    request_id: z.string().min(1).max(200).optional(),
     /** Send a specific stage instead of the record's next one. */
     stage_id: z.string().optional(),
     /** Send in this locale instead of the one resolved from the cart. */

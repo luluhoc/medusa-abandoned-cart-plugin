@@ -33,6 +33,9 @@ export const AbandonedCart = model
       .default("pending"),
     /** Number of stages already sent, i.e. the index of the next stage to send. */
     stage_index: model.number().default(0),
+    revision: model.number().default(0),
+    attempt_order: model.bigNumber().default(0),
+    delivery_cycle: model.text().default("initial"),
     /** The cart's `updated_at` as of the last sweep — the start of the "quiet" period. */
     cart_updated_at: model.dateTime(),
     last_notified_at: model.dateTime().nullable(),

@@ -1,6 +1,6 @@
 {
   "name": "@luluhoc/medusa-plugin-abandoned-cart",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Abandoned cart detection, multi-stage recovery notifications, and recovery analytics for Medusa v2.",
   "license": "MIT",
   "author": "luluhoc",
@@ -38,6 +38,7 @@
     "build": "medusa plugin:build",
     "dev": "medusa plugin:develop",
     "generate": "medusa plugin:db:generate",
+    "test": "yarn build && node --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "prepublishOnly": "medusa plugin:build"
   },

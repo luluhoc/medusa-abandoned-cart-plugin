@@ -13,6 +13,7 @@ export type SweepResult = {
   sent: number
   failed: number
   closed: number
+  deferred: number
 }
 
 /** Hard bounds so a bad page/filter combination can never spin forever. */
@@ -42,6 +43,7 @@ export async function runAbandonedCartSweep(
     sent: 0,
     failed: 0,
     closed: 0,
+    deferred: 0,
   }
 
   // Detection
@@ -80,22 +82,23 @@ export async function runAbandonedCartSweep(
   // Notification
   const limit = options.notificationBatchSize
 
+  const attempted = new Set<string>()
   for (let round = 0; round < MAX_NOTIFICATION_PAGES; round++) {
     const { result: sendResult } = await sendAbandonedCartNotificationsWorkflow(
       container
     ).run({
-      input: { limit },
+      input: { limit, exclude_ids: [...attempted] },
     })
 
     result.sent += sendResult.sent
     result.failed += sendResult.failed
     result.closed += sendResult.closed
+    result.deferred += sendResult.deferred
+    for (const id of sendResult.processed_ids) attempted.add(id)
 
-    // Only keep going while a full page was actually processed; a short page
-    // (or a page of pure failures, which stay selectable) ends the sweep.
-    if (sendResult.sent + sendResult.closed < limit) {
-      break
-    }
+    // Each record is attempted at most once in this bounded pass. Persistent
+    // attempt_order ordering also provides fairness across capped sweeps.
+    if (sendResult.processed_ids.length < limit) break
   }
 
   return result

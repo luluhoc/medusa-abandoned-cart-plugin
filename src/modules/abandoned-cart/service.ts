@@ -1,6 +1,7 @@
-import { randomBytes } from "crypto"
+import { createHash, randomBytes, randomUUID } from "crypto"
 
-import { MedusaService } from "@medusajs/framework/utils"
+import type { Context } from "@medusajs/framework/types"
+import { InjectManager, MedusaContext, MedusaService } from "@medusajs/framework/utils"
 
 import {
   applyTemplatePattern,
@@ -10,6 +11,8 @@ import {
   pickForLocale,
 } from "../../utils/locale"
 import { AbandonedCart } from "./models/abandoned-cart"
+import { AbandonedCartDelivery } from "./models/abandoned-cart-delivery"
+import { execute, updateState } from "./persistence"
 import { AbandonedCartNotification } from "./models/abandoned-cart-notification"
 import { resolveOptions } from "./options"
 import {
@@ -27,6 +30,7 @@ type SchedulableRecord = {
   status: AbandonedCartStatus | string
   stage_index: number
   cart_updated_at: string | Date
+  last_notified_at?: string | Date | null
 }
 
 export type AbandonedCartStats = {
@@ -60,12 +64,10 @@ const NOTIFIED_STATUSES: AbandonedCartStatus[] = [
   "expired",
 ]
 
-/** How many converted carts `getStats` sums to compute recovered value. */
-const RECOVERED_VALUE_SAMPLE_SIZE = 1000
-
 export default class AbandonedCartModuleService extends MedusaService({
   AbandonedCart,
   AbandonedCartNotification,
+  AbandonedCartDelivery,
 }) {
   protected readonly options_: ResolvedAbandonedCartOptions
 
@@ -225,7 +227,13 @@ export default class AbandonedCartModuleService extends MedusaService({
 
     const dueAt = new Date(record.cart_updated_at).getTime() + stage.delayMs
 
-    return now >= dueAt ? stage : null
+    // Keep cumulative cart deadlines, with a spacing backstop after a late send.
+    const previousStage = this.options_.stages[record.stage_index - 1]
+    const lastSentAt = record.last_notified_at && new Date(record.last_notified_at).getTime()
+    const spacedDueAt = previousStage && lastSentAt
+      ? Math.max(dueAt, lastSentAt + stage.delayMs - previousStage.delayMs)
+      : dueAt
+    return now >= spacedDueAt ? stage : null
   }
 
   generateRecoveryToken(): string {
@@ -271,85 +279,86 @@ export default class AbandonedCartModuleService extends MedusaService({
     return `${origin}${path.startsWith("/") ? "" : "/"}${path}`
   }
 
-  async getStats(
-    filters: { created_at?: { $gte?: Date; $lte?: Date } } = {}
-  ): Promise<AbandonedCartStats> {
-    const counts = {} as Record<AbandonedCartStatus, number>
+  @InjectManager()
+  async updateState(before: any, data: Record<string, unknown>, @MedusaContext() context: Context = {}) {
+    return updateState(context, before, data)
+  }
 
-    await Promise.all(
-      ABANDONED_CART_STATUSES.map(async (status) => {
-        const [, count] = await this.listAndCountAbandonedCarts(
-          { ...filters, status },
-          { take: 1, select: ["id"] }
-        )
+  @InjectManager()
+  async convertCart(id: string, orderId: string, @MedusaContext() context: Context = {}) {
+    const rows = await execute(context, `UPDATE abandoned_cart SET status = 'converted', converted_at = coalesce(converted_at, now()),
+      order_id = ?, revision = revision + 1, updated_at = now() WHERE id = ? AND deleted_at IS NULL
+      AND (order_id IS NULL OR order_id = ?) AND (status <> 'converted' OR order_id IS NULL) RETURNING *`, [orderId, id, orderId])
+    return rows[0] ?? null
+  }
 
-        counts[status] = count
-      })
-    )
+  @InjectManager()
+  async noteAttempt(id: string, @MedusaContext() context: Context = {}) {
+    const now = Date.now()
+    await execute(context, "UPDATE abandoned_cart SET attempt_order = ?, raw_attempt_order = ?::jsonb WHERE id = ? AND deleted_at IS NULL",
+      [now, JSON.stringify({ value: String(now), precision: 20 }), id])
+  }
 
-    const total = ABANDONED_CART_STATUSES.reduce(
-      (sum, status) => sum + counts[status],
-      0
-    )
-    const notified = NOTIFIED_STATUSES.reduce(
-      (sum, status) => sum + counts[status],
-      0
-    )
+  @InjectManager()
+  async claimDelivery(key: string, recordId: string, notificationKey: string, @MedusaContext() context: Context = {}) {
+    const token = randomUUID()
+    const id = "abdelivery_" + createHash("sha256").update(key).digest("hex")
+    const inserted = await execute(context, `INSERT INTO abandoned_cart_delivery
+      (id, delivery_key, abandoned_cart_id, state, claim_token, claim_expires_at, idempotency_key)
+      VALUES (?, ?, ?, 'reserved', ?, now() + interval '2 minutes', ?) ON CONFLICT DO NOTHING RETURNING *`,
+      [id, key, recordId, token, notificationKey])
+    if (inserted.length) return { owned: true, row: inserted[0] }
+    const [existing] = await execute(context, `SELECT * FROM abandoned_cart_delivery WHERE delivery_key = ? AND deleted_at IS NULL`, [key])
+    if (!existing) throw new Error("Delivery claim unavailable")
+    const renewed = await execute(context, `UPDATE abandoned_cart_delivery SET claim_token = ?, claim_expires_at = now() + interval '2 minutes', updated_at = now()
+      WHERE id = ? AND state = 'reserved' AND claim_expires_at < now() RETURNING *`, [token, existing.id])
+    return { owned: !!renewed.length, row: renewed[0] ?? existing }
+  }
 
-    const byLocale = await Promise.all(
-      this.options_.locales.map(async (locale) => {
-        const [total, notifiedCount, convertedCount] = await Promise.all(
-          [
-            {},
-            { status: NOTIFIED_STATUSES },
-            { status: "converted" },
-          ].map(async (statusFilter) => {
-            const [, count] = await this.listAndCountAbandonedCarts(
-              { ...filters, ...statusFilter, locale },
-              { take: 1, select: ["id"] }
-            )
+  @InjectManager()
+  async beginDelivery(claim: any, notificationKey: string, intent: unknown = null, @MedusaContext() context: Context = {}) {
+    const rows = await execute(context, `UPDATE abandoned_cart_delivery SET state = 'invoking', idempotency_key = ?, result = ?::jsonb, updated_at = now()
+      WHERE id = ? AND state = 'reserved' AND claim_token = ? AND claim_expires_at > now() RETURNING *`, [notificationKey, JSON.stringify(intent), claim.id, claim.claim_token])
+    return rows[0] ?? null
+  }
 
-            return count
-          })
-        )
+  @InjectManager()
+  async acceptDelivery(claim: any, result: any, @MedusaContext() context: Context = {}) {
+    await execute(context, `UPDATE abandoned_cart_delivery SET state = 'accepted', result = ?::jsonb, updated_at = now()
+      WHERE id = ? AND claim_token = ? AND state IN ('reserved', 'invoking')`, [JSON.stringify(result), claim.id, claim.claim_token])
+  }
 
-        return {
-          locale,
-          total,
-          notified: notifiedCount,
-          converted: convertedCount,
-        }
-      })
-    )
+  @InjectManager()
+  async retryDelivery(claim: any, @MedusaContext() context: Context = {}) {
+    // Only called after the native notification ledger proves failure (or before invocation).
+    await execute(context, `UPDATE abandoned_cart_delivery SET state = 'reserved', claim_expires_at = now() - interval '1 second', updated_at = now()
+      WHERE id = ? AND claim_token = ? AND state IN ('reserved', 'invoking')`, [claim.id, claim.claim_token])
+  }
 
-    const converted = await this.listAbandonedCarts(
-      { ...filters, status: "converted" },
-      {
-        take: RECOVERED_VALUE_SAMPLE_SIZE,
-        select: ["id", "subtotal", "currency_code"],
-      }
-    )
-
-    const byCurrency = new Map<string, number>()
-    for (const record of converted) {
-      const currency = (record.currency_code ?? "unknown").toLowerCase()
-      const amount = Number(record.subtotal ?? 0)
-
-      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + amount)
+  @InjectManager()
+  async getStats(filters: { created_at?: { $gte?: Date; $lte?: Date } } = {}, @MedusaContext() context: Context = {}): Promise<AbandonedCartStats> {
+    const where = ["deleted_at IS NULL"]
+    const params: unknown[] = []
+    for (const [operator, date] of [[">=", filters.created_at?.$gte], ["<=", filters.created_at?.$lte]] as const) {
+      if (date) { where.push(`created_at ${operator} ?`); params.push(date) }
     }
-
-    return {
-      counts,
-      total,
-      notified,
-      recovery_rate: notified
-        ? (counts.recovered + counts.converted) / notified
-        : 0,
+    const rows = await execute(context, `WITH filtered AS (SELECT status, locale, currency_code, subtotal FROM abandoned_cart WHERE ${where.join(" AND ")})
+      SELECT 'status' AS kind, status, NULL::text AS locale, NULL::text AS currency_code, count(*)::text AS count, NULL::text AS amount FROM filtered GROUP BY status
+      UNION ALL SELECT 'locale', status, locale, NULL::text, count(*)::text, NULL::text FROM filtered WHERE locale IN (SELECT jsonb_array_elements_text(?::jsonb)) GROUP BY status, locale
+      UNION ALL SELECT 'value', NULL::text, NULL::text, lower(coalesce(currency_code, 'unknown')), NULL::text, sum(coalesce(subtotal, 0))::text
+      FROM filtered WHERE status = 'converted' GROUP BY lower(coalesce(currency_code, 'unknown'))`, [...params, JSON.stringify(this.options_.locales)])
+    const counts = Object.fromEntries(ABANDONED_CART_STATUSES.map(status => [status, 0])) as Record<AbandonedCartStatus, number>
+    for (const row of rows.filter(row => row.kind === "status")) counts[row.status] = Number(row.count)
+    const total = Object.values(counts).reduce((sum, value) => sum + value, 0)
+    const notified = NOTIFIED_STATUSES.reduce((sum, status) => sum + counts[status], 0)
+    const by_locale = this.options_.locales.map(locale => {
+      const group = rows.filter(row => row.kind === "locale" && row.locale === locale)
+      return { locale, total: group.reduce((sum, row) => sum + Number(row.count), 0),
+        notified: group.filter(row => NOTIFIED_STATUSES.includes(row.status)).reduce((sum, row) => sum + Number(row.count), 0),
+        converted: Number(group.find(row => row.status === "converted")?.count ?? 0) }
+    })
+    return { counts, total, notified, recovery_rate: notified ? (counts.recovered + counts.converted) / notified : 0,
       conversion_rate: notified ? counts.converted / notified : 0,
-      recovered_value: [...byCurrency.entries()].map(
-        ([currency_code, amount]) => ({ currency_code, amount })
-      ),
-      by_locale: byLocale,
-    }
+      recovered_value: rows.filter(row => row.kind === "value").map(row => ({ currency_code: row.currency_code, amount: Number(row.amount) })), by_locale }
   }
 }

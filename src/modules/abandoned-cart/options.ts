@@ -152,6 +152,12 @@ export function resolveOptions(
     )
   }
 
+  for (const [key, value] of [["batchSize", options.batchSize], ["notificationBatchSize", options.notificationBatchSize]] as const) {
+    if (value != null && (!Number.isSafeInteger(value) || value < 1 || value > 1000)) {
+      throw new MedusaError(MedusaError.Types.INVALID_DATA, `${key} must be an integer between 1 and 1000`)
+    }
+  }
+
   return {
     enabled: options.enabled ?? true,
     channel,

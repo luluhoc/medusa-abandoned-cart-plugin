@@ -19,6 +19,8 @@ whichever provider is registered for the stage's `channel`, and the provider ren
   "stage": { "id": "reminder-1", "index": 0 },
 
   "cart_id": "cart_01J…",
+  "abandoned_cart_id": "abcart_01J…",
+  "forced_send": false,
   "token": "9f3aK2…",
   "recovery_url": "https://shop.com/cart/recover/9f3aK2…",  // null without `storefrontUrl`
   "email": "shopper@example.com",
@@ -186,3 +188,38 @@ Every attempt is written to `abandoned_cart_notification`:
 
 Failures don't advance the sequence, so the same stage is retried on the next sweep. See
 [How it works](./how-it-works.md#a-send-fails).
+
+## Delivery-time host policy
+
+A host loader may register `abandonedCartNotificationEnricher` using `asValue`.
+The optional callback runs with the commerce workflow container immediately before delivery:
+
+```ts
+import { asValue } from "@medusajs/framework/awilix"
+import { ABANDONED_CART_NOTIFICATION_ENRICHER } from "@luluhoc/medusa-plugin-abandoned-cart/utils/notification-enrichment"
+
+container.register({
+  [ABANDONED_CART_NOTIFICATION_ENRICHER]: asValue(async (payload, workflowContainer) => {
+    // Re-read live payment state or enrich the template data here.
+    return payload
+  }),
+})
+```
+
+The callback receives the notification payload and workflow container. Return the payload
+(or an enriched copy) to send; return `null` to dismiss a stale record. To defer temporarily,
+throw an error with `code: "abandoned_cart_deferred"`: no message is sent, no failed-delivery
+row is created, and the stage remains eligible for a later sweep. Other exceptions follow the
+normal failed-send retry path. Provider responses with `status: "failure"` also leave the stage
+unadvanced. The core sender supplies a stable delivery idempotency key and a durable database
+claim even without a hook. A hook may supply its own native key, which must remain stable for that
+delivery. Selection, current tracking and uncached cart email must agree; the hook cannot reroute
+the recipient. A mismatch defers without exposing current contents to an old address.
+
+Accepted receipts survive later audit failures. An uncertain provider result stays deferred until
+the native notification ledger proves success or failure; a claim timeout never triggers a blind
+resend. See [Failure handling](./how-it-works.md#failure-handling).
+
+Payload data includes `abandoned_cart_id` and `forced_send`. The latter reflects an explicit
+administrative force send and lets host policy preserve its timing override; payment eligibility
+should still be checked. Gateway verification and coupon policy belong in the host application.

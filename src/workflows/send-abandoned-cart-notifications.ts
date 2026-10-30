@@ -10,6 +10,8 @@ import { sendAbandonedCartNotificationsStep } from "./steps/send-abandoned-cart-
 export type SendAbandonedCartNotificationsWorkflowInput = {
   /** Restrict the run to these tracking record ids. */
   ids?: string[]
+  exclude_ids?: string[]
+  request_id?: string
   /** Maximum number of carts to notify. Defaults to `notificationBatchSize`. */
   limit?: number
   /** Ignore stage delays and send immediately. */
