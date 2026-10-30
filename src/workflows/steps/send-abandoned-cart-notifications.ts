@@ -130,6 +130,9 @@ export const sendAbandonedCartNotificationsStep = createStep("send-abandoned-car
       if (!sameEmail(item.to, current.email) || !sameEmail(current.email, cart.email)) throw deferred()
       const payload = buildPayload(item, cart, service)
       const prepare = container.resolve<AbandonedCartNotificationEnricher>(ABANDONED_CART_NOTIFICATION_ENRICHER, { allowUnregistered: true })
+      if (service.getOptions().requireDeliveryHook && typeof prepare !== "function") {
+        throw new Error("Abandoned cart delivery hook is required")
+      }
       const prepared = prepare ? await prepare(payload, container) : payload
       if (!prepared) {
         stale.push({ record_id: item.record_id, status: "dismissed", cycle: result.cycle })

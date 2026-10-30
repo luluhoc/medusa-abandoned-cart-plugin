@@ -52,6 +52,27 @@ test("host enrichment remains optional and keeps its stable native key", async (
   const result = await deliver(f); assert.equal(result.sent, 1); assert.equal(f.delivered[0].idempotency_key, "host-key")
   const plain = fixture(); await deliver(plain); assert.ok(plain.delivered[0].idempotency_key.startsWith("abandoned-cart:"))
 })
+
+test("required hooks fail closed for automatic and force sends, then allow retry after registration", async () => {
+  for (const input of [{}, { ids: ["cart"], force: true, request_id: "required-hook" }]) {
+    const f = fixture(); f.service.options_.requireDeliveryHook = true
+    for (const hook of [undefined, { invalid: true }]) {
+      f.services.abandonedCartNotificationEnricher = hook
+      await persist(f, await deliver(f, await due(f, input)))
+      assert.equal(f.delivered.length, 0); assert.equal(f.records[0].stage_index, 0)
+      assert.equal(f.audit.at(-1).error, "Abandoned cart delivery unavailable")
+    }
+    let calls = 0
+    f.services.abandonedCartNotificationEnricher = async payload => { calls++; return payload }
+    const selected = await due(f, input)
+    const accepted = await deliver(f, selected)
+    await persist(f, accepted)
+    assert.equal(calls, 1); assert.equal(f.delivered.length, 1); assert.equal(f.records[0].stage_index, 1)
+    f.services.abandonedCartNotificationEnricher = undefined
+    await deliver(f, selected)
+    assert.equal(f.delivered.length, 1)
+  }
+})
 test("a delivery receipt survives later bookkeeping failure", async () => {
   const f = fixture(); const selected = await due(f); const accepted = await deliver(f, selected)
   const create = f.service.createAbandonedCartNotifications

@@ -26,6 +26,7 @@ a plugin that silently sends nothing — see [Validation rules](#validation-rule
 | `template` | `string` | `"abandoned-cart"` | Provider template id used by stages that don't set their own. |
 | `channel` | `string` | `"email"` | Notification channel used by stages that don't set their own. |
 | `notificationData` | `object` | `{}` | Static values merged into every notification payload's `data`. |
+| `requireDeliveryHook` | `boolean` | `false` | Refuse delivery when `abandonedCartNotificationEnricher` is missing or is not a function. Failed attempts remain retryable. |
 
 ### Localization
 

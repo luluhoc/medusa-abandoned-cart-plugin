@@ -86,7 +86,8 @@ fail silently. It ships in the npm package, so an agent can read it from `node_m
 
 **Options** — `stages`, `template`, `channel`, `notificationData`, `enabled`, `maxAge`, `minItems`,
 `minSubtotal`, `requireEmail`, `onlyRegisteredCustomers`, `salesChannelIds`, `resetOnActivity`,
-`storefrontUrl`, `recoveryPath`, `stopAfterRecovery`, `batchSize`, `notificationBatchSize`, plus the
+`storefrontUrl`, `recoveryPath`, `stopAfterRecovery`, `batchSize`, `notificationBatchSize`,
+`requireDeliveryHook` (default `false`), plus the
 localization set — `locales`, `defaultLocale`, `localeMetadataKey`, `localeByCountry`,
 `localeByRegion`, `localeBySalesChannel`, `resolveLocale`, `templates`, `templatePattern`,
 `localeData`, `storefrontUrlByLocale`, `recoveryPathByLocale`.
