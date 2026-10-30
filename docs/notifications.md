@@ -192,7 +192,13 @@ Failures don't advance the sequence, so the same stage is retried on the next sw
 ## Delivery-time host policy
 
 A host loader may register `abandonedCartNotificationEnricher` using `asValue`.
-The optional callback runs with the commerce workflow container immediately before delivery:
+The callback runs with the commerce workflow container immediately before delivery. It is optional
+by default. Set `requireDeliveryHook: true` in plugin options when host payment or coupon policy
+must run before sending. A missing or non-function hook then fails the attempt without invoking the
+provider or advancing the stage; registering it allows a later retry. This applies to force sends too.
+Accepted receipt replay can still repair bookkeeping without calling a provider or hook again.
+
+Register the hook in a host startup path before jobs and routes begin:
 
 ```ts
 import { asValue } from "@medusajs/framework/awilix"

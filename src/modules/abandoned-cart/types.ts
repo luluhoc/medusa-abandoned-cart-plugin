@@ -99,6 +99,8 @@ export type AbandonedCartModuleOptions = {
   resetOnActivity?: boolean
   /** Extra static data merged into every notification payload's `data`. */
   notificationData?: Record<string, unknown>
+  /** Refuse delivery unless the host enrichment hook is registered. Default: `false`. */
+  requireDeliveryHook?: boolean
 
   // Localization
 
@@ -179,6 +181,7 @@ export type ResolvedAbandonedCartOptions = {
   stopAfterRecovery: boolean
   resetOnActivity: boolean
   notificationData: Record<string, unknown>
+  requireDeliveryHook: boolean
   locales: string[]
   defaultLocale: string | null
   localeMetadataKey: string

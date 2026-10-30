@@ -180,6 +180,7 @@ type Options = {
   template?: string                     // default "abandoned-cart"
   channel?: string                      // default "email"
   notificationData?: Record<string, unknown>  // default {}
+  requireDeliveryHook?: boolean         // default false; missing hook fails delivery
 
   // detection
   enabled?: boolean                     // default true

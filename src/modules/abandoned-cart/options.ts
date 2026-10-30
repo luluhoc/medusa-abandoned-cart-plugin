@@ -158,6 +158,10 @@ export function resolveOptions(
     }
   }
 
+  if (options.requireDeliveryHook != null && typeof options.requireDeliveryHook !== "boolean") {
+    throw new MedusaError(MedusaError.Types.INVALID_DATA, '"requireDeliveryHook" must be a boolean')
+  }
+
   return {
     enabled: options.enabled ?? true,
     channel,
@@ -176,6 +180,7 @@ export function resolveOptions(
     stopAfterRecovery: options.stopAfterRecovery ?? true,
     resetOnActivity: options.resetOnActivity ?? false,
     notificationData: options.notificationData ?? {},
+    requireDeliveryHook: options.requireDeliveryHook ?? false,
     locales,
     defaultLocale,
     localeMetadataKey:

@@ -29,3 +29,11 @@ test("invalid batch sizes fail at boot instead of burning sweep rounds", () => {
     assert.equal(resolveOptions({ [field]: 1000 })[field], 1000)
   }
 })
+
+test("required delivery hook policy defaults off and accepts only boolean configuration", () => {
+  const { resolveOptions } = load("modules/abandoned-cart/options.js")
+  assert.equal(resolveOptions().requireDeliveryHook, false)
+  assert.equal(resolveOptions({ requireDeliveryHook: true }).requireDeliveryHook, true)
+  assert.equal(resolveOptions({ requireDeliveryHook: false }).requireDeliveryHook, false)
+  for (const value of ["true", "false", 0, 1, {}]) assert.throws(() => resolveOptions({ requireDeliveryHook: value }), /must be a boolean/)
+})
