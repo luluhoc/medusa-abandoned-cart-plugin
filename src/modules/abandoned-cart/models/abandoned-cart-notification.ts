@@ -15,6 +15,7 @@ export const AbandonedCartNotification = model
     to: model.text(),
     /** The id of the record created by the Notification Module, when sending succeeded. */
     notification_id: model.text().nullable(),
+    delivery_key: model.text().unique().nullable(),
     /** The provider error message, when sending failed. */
     error: model.text().nullable(),
     sent_at: model.dateTime().nullable(),

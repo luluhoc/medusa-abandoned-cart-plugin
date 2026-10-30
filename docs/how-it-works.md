@@ -38,19 +38,25 @@ warning telling you to raise `batchSize` or shorten `maxAge`.
 
 ### Pass 2 — notification
 
-`sendAbandonedCartNotificationsWorkflow` selects tracked carts whose next stage is due, oldest
-activity first, then:
+`sendAbandonedCartNotificationsWorkflow` selects tracked carts whose next stage is due, least
+recently attempted first, then oldest activity and ID:
 
-1. **Re-validates against the live cart.** A cart that was completed, emptied or deleted since
-   detection is closed out instead of emailed — see [Stale carts](#stale-carts).
+1. **Claims delivery and re-validates against the uncached live cart.** A cart that was completed,
+   emptied or deleted since detection is closed out instead of emailed. Selection, tracking and
+   live cart email addresses must agree; a mismatch defers delivery until a later detection pass.
 2. **Re-resolves the locale** from that same live cart, so a shopper who switched language after
    abandoning is emailed in the language they last used. The value stored at detection is the
    fallback. See [Localization](./localization.md#when-it-is-resolved).
 3. **Sends one notification per cart**, isolated in its own try/catch, so a single bad address or
    provider hiccup can't cancel the batch.
-4. **Records the outcome** in `abandoned_cart_notification` and advances `stage_index`.
+4. **Persists an accepted receipt before recording the outcome** in `abandoned_cart_notification`
+   and conditionally advancing `stage_index`. Replays repair bookkeeping without sending again.
 
-The pass repeats while it keeps filling a whole page, up to 10 rounds per sweep. Due deadlines and late-send spacing are filtered before the database page limit, so waiting records cannot crowd due reminders out of the batch. Recovered records remain eligible when `stopAfterRecovery` is false. Automatic notification selection also honors `maxAge`.
+The pass repeats while it processes a whole page, including failures and deferrals, up to 10 rounds.
+Each record is attempted at most once per sweep. Persistent attempt ordering lets later sweeps reach
+the rest of a queue larger than that cap. Due deadlines and late-send spacing are filtered before
+the page limit. Recovered records remain eligible when `stopAfterRecovery` is false. Automatic
+notification selection honors `maxAge`; force sends bypass timing even without explicit IDs.
 
 ## The timing model
 
@@ -70,8 +76,8 @@ last send.
 
 Two consequences worth internalising:
 
-- **A stage can never fire twice.** `stage_index` only moves forward, and each stage has exactly one
-  due time.
+- **An accepted automatic delivery is reused on retry.** Its stage/cycle key is stable across
+  workers and audit failures. Explicit manual operations and activity resets have distinct keys.
 - **A long-idle cart doesn't get its whole sequence at once.** The sweep advances a cart by one stage
   per run, and a late send preserves the configured gap before the next stage. Automatic reminders
   beyond `maxAge` are ignored.
@@ -115,7 +121,9 @@ emails are written as "you left something behind" rather than "here's a nudge".
 | `expired` | Cart deleted, emptied, or has no reachable address. | No |
 
 Detection never resurrects a `converted` or `dismissed` cart, even if the underlying cart is somehow
-updated again.
+updated again. Recovery clicks do not revive `dismissed` or `expired` records. Delayed delivery
+bookkeeping and stale compensation cannot overwrite a newer lifecycle revision. A verified order
+conversion is authoritative, including when it races a recovery click.
 
 ## Attribution
 
@@ -137,7 +145,10 @@ Attribution failures are caught and logged. Bookkeeping never breaks order place
 ### A send fails
 
 The error is written to `abandoned_cart_notification` with `error` set and `sent_at` null, and
-`stage_index` is **not** advanced. The next sweep picks the same cart up and retries the same stage.
+`stage_index` is **not** advanced. A proven native notification failure allows another attempt.
+An unknown outcome stays `invoking` and is deferred until the native notification ledger proves
+success or failure. It is never blindly resent after a timeout. Provider-side exactly-once delivery
+cannot be guaranteed; native/provider reconciliation is required if that ledger remains pending.
 
 That means a permanently bad address retries every sweep until the cart ages past `maxAge`
 — or you dismiss it. The notification rows make this visible: several failures for the same
@@ -154,14 +165,19 @@ During the notification pass, a tracked cart is closed instead of emailed when:
 | The cart has no line items left | `expired` |
 | Neither the record nor the cart has an email address | `expired` |
 
+A changed or missing live address that disagrees with an existing address defers delivery rather
+than sending current cart contents to a previous recipient. The host hook cannot reroute the email.
+
 The `converted` case is a fallback for orders completed without an `order.placed` event reaching the
 subscriber; normally attribution has already happened.
 
 ### A workflow step throws
 
-Each step that writes to the database has a compensation function, so a failure mid-workflow rolls
-back the rows it created or changed. The send step deliberately has none — an email that left the
-building can't be un-sent — which is why sending and recording are separate steps in that order.
+Accepted delivery receipts, notification audits and order conversion facts remain durable after
+workflow failure. Sending and recording remain separate steps; a recording retry reuses the receipt
+and unique audit key. Snapshot and recovery compensation compares the revision it originally wrote,
+so it cannot undo a newer conversion, dismissal or send. New tracking observations remain available
+for retries rather than being deleted during compensation.
 
 ### Late sends and host deferral
 

@@ -16,6 +16,7 @@ export type MarkAbandonedCartRecoveredStepOutput = {
 
 type RecoveredCompensation = {
   previous: Record<string, unknown> | null
+  applied?: Record<string, any>
 }
 
 /**
@@ -56,7 +57,7 @@ export const markAbandonedCartRecoveredStep = createStep(
     }
 
     // Converted carts already reached the end of the funnel.
-    if (record.status === "converted") {
+    if (["converted", "dismissed", "expired"].includes(record.status) || record.order_id) {
       return new StepResponse({ record }, { previous: null })
     }
 
@@ -66,15 +67,10 @@ export const markAbandonedCartRecoveredStep = createStep(
       recovered_at: record.recovered_at,
     }
 
-    const [updated] = await service.updateAbandonedCarts([
-      {
-        id: record.id,
-        status: "recovered",
-        recovered_at: record.recovered_at ?? new Date(),
-      },
-    ])
-
-    return new StepResponse({ record: updated }, { previous })
+    const updated = await service.updateState(record, {
+      status: "recovered", recovered_at: record.recovered_at ?? new Date(),
+    })
+    return new StepResponse({ record: updated ?? await service.retrieveAbandonedCart(record.id) }, { previous, applied: updated })
   },
   async (compensation, { container }) => {
     if (!compensation?.previous) {
@@ -85,6 +81,6 @@ export const markAbandonedCartRecoveredStep = createStep(
       ABANDONED_CART_MODULE
     )
 
-    await service.updateAbandonedCarts([compensation.previous])
+    if (compensation.applied) await service.updateState(compensation.applied, compensation.previous)
   }
 )

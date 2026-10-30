@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto"
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { MedusaError } from "@medusajs/framework/utils"
 
@@ -39,6 +40,7 @@ export const POST = async (
     input: {
       ids: [req.params.id],
       force: true,
+      request_id: req.validatedBody?.request_id ?? (typeof req.headers["idempotency-key"] === "string" ? req.headers["idempotency-key"].slice(0, 200) : randomUUID()),
       stage_id: req.validatedBody?.stage_id,
       locale: req.validatedBody?.locale,
     },

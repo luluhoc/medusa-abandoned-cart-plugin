@@ -106,7 +106,8 @@ the plugin options does nothing.
 yarn medusa db:migrate
 ```
 
-Creates `abandoned_cart` and `abandoned_cart_notification`.
+Creates `abandoned_cart`, `abandoned_cart_notification` and `abandoned_cart_delivery`.
+Upgrades also require migrations before restarting all workers with the new plugin.
 
 ### 5. Add the storefront route
 
@@ -196,8 +197,8 @@ type Options = {
   stopAfterRecovery?: boolean           // default true
 
   // throughput
-  batchSize?: number                    // default 100
-  notificationBatchSize?: number        // default 100
+  batchSize?: number                    // default 100; integer 1..1000
+  notificationBatchSize?: number        // default 100; integer 1..1000
 
   // localization — all optional; omit them all and behaviour is unchanged
   locales?: string[]                    // default [] — the supported set
@@ -224,7 +225,7 @@ locale fallback chain (`fr-CA` → `fr`). Full behaviour:
 
 ### Constraints
 
-Violating any of the first five throws at boot with a clear message:
+Violating any of the first five, or a batch size outside integer 1..1000, throws at boot:
 
 1. Stage delays must **strictly increase**. Delays are cumulative from the cart's last activity, not
    gaps between emails.
@@ -239,8 +240,8 @@ Violating any of the first five throws at boot with a clear message:
    Never multiply or divide by 100.
 7. The sweep advances a cart **one stage per run**. Set `ABANDONED_CART_CRON` shorter than the gap
    between the two closest stages.
-8. Scheduled jobs run **per instance**. If the app runs multiple server instances, run the sweep on a
-   single worker or duplicate emails will go out.
+8. Scheduled jobs run **per instance**. Shared PostgreSQL delivery claims serialize the same
+   stage/cycle across workers. A single scheduler still avoids redundant scanning.
 
 ### Failure modes
 
@@ -257,9 +258,9 @@ Violating any of the first five throws at boot with a clear message:
 | Emails go out untranslated | Cart resolved to no locale, or the locale has no `templates` entry — the plugin falls back rather than skipping | [docs/localization.md](./docs/localization.md) |
 | Boot error naming a locale | A locale-keyed option references a locale outside `locales` | Constraint 5 |
 
-Failed sends do not advance the stage, so they retry on every sweep until fixed or the cart ages past
-`maxAge`. A wrong template id therefore produces a growing pile of failures rather than an obvious
-error — check `failed` in the sweep response after configuring.
+Failed sends do not advance the stage. Proven native notification failures can retry; uncertain
+provider outcomes remain deferred until the native notification ledger proves success or failure.
+Check `failed` and `deferred` after configuring. Never clear an invoking claim just to force a retry.
 
 ### Public API surface
 
@@ -268,7 +269,7 @@ Import paths available to the host application:
 ```ts
 import {
   syncAbandonedCartsWorkflow,              // { limit?, offset? }
-  sendAbandonedCartNotificationsWorkflow,  // { ids?, limit?, force?, stage_id?, locale? }
+  sendAbandonedCartNotificationsWorkflow,  // { ids?, limit?, force?, stage_id?, locale?, request_id?, exclude_ids? }
   markAbandonedCartRecoveredWorkflow,      // { id? | token? | cart_id? }
   markAbandonedCartConvertedWorkflow,      // { order_id, cart_id? }
 } from "@luluhoc/medusa-plugin-abandoned-cart/workflows"
@@ -325,8 +326,9 @@ Do not break these without deliberately changing the documented behaviour:
 
 1. **A failed send must not advance `stage_index`.** That is what makes retries work.
    ([`record-abandoned-cart-notifications.ts`](./src/workflows/steps/record-abandoned-cart-notifications.ts))
-2. **Sending and recording are separate steps, in that order.** The send step has no compensation
-   because an email cannot be un-sent; every step that writes to the database has one.
+2. **Sending and recording are separate steps, in that order.** Durable delivery receipts and audit
+   rows have no compensation: an accepted email cannot be un-sent. Conversion facts are also
+   durable. Compensated snapshot/recovery writes must compare the applied revision before rollback.
 3. **Stage delays are measured from `cart_updated_at`**, the cart's last activity — never from
    `last_notified_at`. A late send adds a minimum-spacing backstop using the configured stage gap.
 4. **`converted` and `dismissed` are terminal.** Detection must never resurrect them.
@@ -340,6 +342,10 @@ Do not break these without deliberately changing the documented behaviour:
    rounds; keep a cap if you change the loops.
 9. **An unresolved or untranslated locale still sends.** Template resolution always falls back to the
    stage's plain `template`; locale is a routing hint, never a gate on delivery.
+10. **Recipient agreement is mandatory.** Selection, the current tracking row and the uncached live
+    cart must agree on the email address; hooks cannot reroute it. A mismatch defers delivery.
+11. **Retry accepted receipts, not provider calls.** Each stage/cycle has a durable claim and audit
+    key. Manual sends use a distinct operation ID; reuse `request_id` for retries of that operation.
 
 ### If you change the option schema
 

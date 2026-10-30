@@ -200,7 +200,7 @@ import { ABANDONED_CART_NOTIFICATION_ENRICHER } from "@luluhoc/medusa-plugin-aba
 
 container.register({
   [ABANDONED_CART_NOTIFICATION_ENRICHER]: asValue(async (payload, workflowContainer) => {
-    // Re-read live cart/payment state or add an idempotency key here.
+    // Re-read live payment state or enrich the template data here.
     return payload
   }),
 })
@@ -211,7 +211,14 @@ The callback receives the notification payload and workflow container. Return th
 throw an error with `code: "abandoned_cart_deferred"`: no message is sent, no failed-delivery
 row is created, and the stage remains eligible for a later sweep. Other exceptions follow the
 normal failed-send retry path. Provider responses with `status: "failure"` also leave the stage
-unadvanced. With no hook registered, the original provider path remains available.
+unadvanced. The core sender supplies a stable delivery idempotency key and a durable database
+claim even without a hook. A hook may supply its own native key, which must remain stable for that
+delivery. Selection, current tracking and uncached cart email must agree; the hook cannot reroute
+the recipient. A mismatch defers without exposing current contents to an old address.
+
+Accepted receipts survive later audit failures. An uncertain provider result stays deferred until
+the native notification ledger proves success or failure; a claim timeout never triggers a blind
+resend. See [Failure handling](./how-it-works.md#failure-handling).
 
 Payload data includes `abandoned_cart_id` and `forced_send`. The latter reflects an explicit
 administrative force send and lets host policy preserve its timing override; payment eligibility

@@ -133,23 +133,27 @@ Attribution runs off the `order.placed` event. Check:
 
 ### `recovered_value` looks too low
 
-It sums at most 1000 converted carts. Past that, aggregate the list route yourself — see the
-[API reference](./api-reference.md#get-adminabandoned-cartsstats).
+The statistics query sums every converted cart in the filtered creation-date window, grouped by
+currency. Check that window and the stored cart currency first.
 
 Remember it's the **line-item subtotal** at detection time, not the order total: no shipping, tax or
 discounts, and it doesn't follow the cart if the shopper added items before checking out.
 
 ## Shoppers got two emails
 
-Each stage sends exactly once per cart, so duplicates mean one of:
+Automatic delivery claims share a stage/cycle key across workers. Investigate:
 
-- **Two Medusa instances both running the cron.** Scheduled jobs run per instance. Run the sweep on
-  one worker (`workerMode: "worker"` on a single instance), or disable the job and drive it from one
-  place — see [Recipes](./recipes.md#detect-on-your-own-cadence).
+- **Mixed plugin versions or databases.** Run migrations and update every worker together. Shared
+  claims only coordinate workers using the same database and updated sender.
 - **Someone pressed Send now.** Manual sends are forced and ignore the schedule. They're recorded in
   the notification list with the same `stage_id`.
 - **`resetOnActivity: true`** and the shopper edited their cart between stages, which restarts the
   sequence by design.
+
+For a retried manual request, reuse `request_id` or `Idempotency-Key`; a fresh ID is a deliberate
+new send. If `deferred` persists, compare the current cart email and tracking email, then inspect
+`abandoned_cart_delivery` and the native notification ledger. An `invoking` claim with no conclusive
+ledger outcome requires provider reconciliation. Do not delete it to bypass duplicate protection.
 
 ## Stage delays don't behave as expected
 

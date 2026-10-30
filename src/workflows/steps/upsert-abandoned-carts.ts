@@ -106,6 +106,7 @@ export const upsertAbandonedCartsStep = createStep(
       if (hasNewActivity && options.resetOnActivity && record.stage_index > 0) {
         update.stage_index = 0
         update.status = "pending"
+        update.delivery_cycle = service.generateRecoveryToken()
       }
 
       const unchanged =
@@ -120,6 +121,7 @@ export const upsertAbandonedCartsStep = createStep(
       }
 
       previous.push({
+        snapshot: record,
         id: record.id,
         email: record.email,
         customer_id: record.customer_id,
@@ -140,8 +142,11 @@ export const upsertAbandonedCartsStep = createStep(
       ? await service.createAbandonedCarts(toCreate)
       : []
 
-    if (toUpdate.length) {
-      await service.updateAbandonedCarts(toUpdate)
+    const applied: any[] = []
+    for (let index = 0; index < toUpdate.length; index++) {
+      const before = previous[index] as any
+      const updated = await service.updateState(before.snapshot, toUpdate[index])
+      if (updated) applied.push({ ...before, applied: updated })
     }
 
     const createdIds = created.map((record) => record.id)
@@ -149,10 +154,10 @@ export const upsertAbandonedCartsStep = createStep(
     return new StepResponse(
       {
         created: createdIds.length,
-        updated: toUpdate.length,
+        updated: applied.length,
         created_ids: createdIds,
       },
-      { created_ids: createdIds, previous }
+      { created_ids: createdIds, previous: applied }
     )
   },
   async (compensation, { container }) => {
@@ -164,12 +169,11 @@ export const upsertAbandonedCartsStep = createStep(
       ABANDONED_CART_MODULE
     )
 
-    if (compensation.created_ids.length) {
-      await service.deleteAbandonedCarts(compensation.created_ids)
-    }
+    // Created observations are idempotent by cart_id and remain durable on retry.
 
-    if (compensation.previous.length) {
-      await service.updateAbandonedCarts(compensation.previous)
+    for (const entry of compensation.previous as any[]) {
+      const { snapshot, applied, ...previous } = entry
+      await service.updateState(applied, { ...previous, delivery_cycle: snapshot.delivery_cycle ?? "initial" })
     }
   }
 )

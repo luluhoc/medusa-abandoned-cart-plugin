@@ -68,12 +68,8 @@ export const POST = async (
     body.locale = locale
   }
 
-  const [updated] = await service.updateAbandonedCarts([
-    {
-      id: req.params.id,
-      ...body,
-    },
-  ])
+  const updated = await service.updateState(record, body)
+  if (!updated) throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "The cart state changed or is terminal; reload before updating")
 
   res.json({ abandoned_cart: updated })
 }

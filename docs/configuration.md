@@ -72,8 +72,8 @@ existed. Full guide: [Localization](./localization.md).
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `batchSize` | `number` | `100` | Carts scanned per page during detection. |
-| `notificationBatchSize` | `number` | `100` | Reminders sent per page. |
+| `batchSize` | `number` | `100` | Carts scanned per page during detection; integer 1–1000. |
+| `notificationBatchSize` | `number` | `100` | Records attempted per notification page; integer 1–1000. |
 
 ## Stages
 

@@ -158,8 +158,8 @@ Funnel counts, rates, recovered value, and the configured sequence.
 | `recovered_value` | Summed subtotal of converted carts, per currency. |
 | `by_locale` | The same funnel per configured locale. Empty unless `locales` is set. |
 
-> `recovered_value` sums at most **1000** converted carts per currency window. Past that, use the
-> list route with `status=converted` and aggregate yourself, or query the table directly.
+Counts, locale breakdowns and currency subtotals use one SQL aggregate over the entire filtered
+window. There is no 1,000-record sampling limit. Amounts remain decimal cart subtotals.
 
 ### `GET /admin/abandoned-carts/:id`
 
@@ -204,7 +204,7 @@ Update a record. Rejects unknown fields.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `status` | `string` | Any status. `dismissed` stops the sequence permanently. |
+| `status` | `string` | Lifecycle status. `dismissed` cannot reopen except as `converted`; `converted` cannot reopen. A conflicting concurrent update is rejected; reload before retrying. |
 | `locale` | `string \| null` | Override the locale future reminders are sent in. Normalized on write. |
 | `metadata` | `object` | Free-form. |
 
@@ -227,6 +227,11 @@ Send this cart's next stage now, ignoring its delay.
 | --- | --- | --- |
 | `stage_id` | `string` | Send this stage instead of the next one. Useful for re-sending. |
 | `locale` | `string` | Send in this locale instead of the one resolved from the cart. |
+| `request_id` | `string` | Optional operation ID, 1–200 characters. Reuse for retries of the same manual send. |
+
+An `Idempotency-Key` header also supplies the operation ID when `request_id` is absent. Otherwise
+each request gets a new ID and deliberately represents a new send. Automatic sends always reuse
+their stage/cycle key. A forced send still checks the current recipient and conversion state.
 
 **Response `200`**
 
@@ -241,8 +246,10 @@ Send this cart's next stage now, ignoring its delay.
 }
 ```
 
-`sent: 0` with `closed: 0` means there was nothing to send — the sequence is finished, or the cart is
-`converted`. `closed: 1` means the cart was stale and got closed out instead.
+`sent: 0` with `closed: 0` can mean a converted cart or deferred delivery. `deferred` counts skipped
+records awaiting eligibility, another worker or native delivery reconciliation. Replaying an
+accepted operation reports its receipt and repairs audit/state without another provider call.
+`closed: 1` means the cart was stale and got closed out instead.
 
 **Errors** — `404` when the id is unknown; `400` when `stage_id` doesn't match a configured stage, or
 when `locale` isn't one of the configured `locales`.
@@ -279,8 +286,9 @@ Run detection and sending immediately instead of waiting for the cron. Runs even
 | `created` | New tracking records. |
 | `updated` | Existing records whose snapshot changed. |
 | `sent` | Reminders accepted by the provider. |
-| `failed` | Reminders the provider rejected. These retry on the next sweep. |
+| `failed` | Delivery errors. Proven native failures can retry; unknown outcomes await reconciliation. |
 | `closed` | Stale carts closed out as `expired` or `converted`. |
+| `deferred` | Records skipped for current eligibility, another claim owner or uncertain delivery outcome. |
 
 The request runs the full sweep synchronously, so on a large catalogue of carts it can take a while.
 It's bounded at 200 detection pages and 10 notification rounds.

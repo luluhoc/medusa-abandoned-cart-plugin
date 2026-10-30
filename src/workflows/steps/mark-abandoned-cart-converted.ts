@@ -60,33 +60,7 @@ export const markAbandonedCartConvertedStep = createStep(
       return new StepResponse({ record: null }, { previous: null })
     }
 
-    const previous = {
-      id: record.id,
-      status: record.status,
-      converted_at: record.converted_at,
-      order_id: record.order_id,
-    }
-
-    const [updated] = await service.updateAbandonedCarts([
-      {
-        id: record.id,
-        status: "converted",
-        converted_at: record.converted_at ?? new Date(),
-        order_id: input.order_id,
-      },
-    ])
-
-    return new StepResponse({ record: updated }, { previous })
-  },
-  async (compensation, { container }) => {
-    if (!compensation?.previous) {
-      return
-    }
-
-    const service = container.resolve<AbandonedCartModuleService>(
-      ABANDONED_CART_MODULE
-    )
-
-    await service.updateAbandonedCarts([compensation.previous])
+    const updated = await service.convertCart(record.id, input.order_id)
+    return new StepResponse({ record: updated ?? await service.retrieveAbandonedCart(record.id) }, { previous: null })
   }
 )
